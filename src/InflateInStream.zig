@@ -2,7 +2,6 @@ const std = @import("std");
 const c = @import("c.zig");
 const util = @import("util.zig");
 
-// TODO - pass along source instream errors (if possible)
 // TODO - data descriptors
 // TODO - configurable buffer size
 // TODO - support custom dictionary
@@ -14,8 +13,7 @@ pub fn InflateInStream(comptime SourceError: type) type {
   return struct {
     const Self = this;
 
-    pub const Error = error{
-      SourceError, // FIXME - how to include source error types?
+    pub const Error = SourceError || error{
       ZlibVersionError,
       InvalidStream, // invalid/corrupt input
       OutOfMemory, // zlib's internal allocation failed
@@ -84,8 +82,7 @@ pub fn InflateInStream(comptime SourceError: type) type {
     }
 
     fn refillCompressedBuffer(self: *InflateInStream(SourceError)) Error!void {
-      const bytes_read = self.source.read(self.compressed_buffer[0..])
-        catch |err| return Error.ReadError;
+      const bytes_read = try self.source.read(self.compressed_buffer[0..]);
 
       self.zlib_stream.next_in = self.compressed_buffer[0..].ptr;
       self.zlib_stream.avail_in = c_uint(bytes_read);
