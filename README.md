@@ -15,7 +15,7 @@ Decompresses data from a source `InStream`. Implements `InStream`. Requires zlib
 Replacement for `read_line` from std. The line is written to an `OutStream`. If writing fails partway (e.g. OutStream is full), it will still consume and discard the rest of the line.
 
 ## ScanZip
-Locates a file in a zip archive (provided via source `InStream`). Returns offset and size of the file. See also ZipTest.zig, which uses ScanZip to find a file in an archive, then InflateInStream to load it.
+Locates a file in a zip archive (provided via source `InStream`+`Seekable`). Returns offset and size of the file. See also ZipTest.zig, which uses ScanZip to find a file in an archive, then InflateInStream to load it.
 
 ## Seekable
 Trait interface with the following methods: seekForward, seekTo, getPos, getEndPos.
