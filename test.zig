@@ -1,6 +1,7 @@
 comptime {
   _ = @import("src/ArrayListOutStream.zig");
   _ = @import("src/FileInStream.zig");
+  _ = @import("src/Image.zig");
   _ = @import("src/InflateInStream.zig");
   _ = @import("src/LineReader.zig");
   _ = @import("src/SimpleInStream.zig");

@@ -1,5 +1,22 @@
 const std = @import("std");
 
+// should this be added to InStream?
+// FIXME - i can't use `!void` return type, it complains
+// that i don't return any error, but i do. compiler bug?
+pub fn skip(comptime Error: type, instream: *std.io.InStream(Error), n: usize) Error!void {
+  var buffer: [200]u8 = undefined;
+  var i: usize = 0;
+
+  while (i < n) {
+    var count = n - i;
+    if (count > buffer.len) {
+      count = buffer.len;
+    }
+    _ = try instream.read(buffer[0..count]);
+    i += count;
+  }
+}
+
 pub fn clearStruct(comptime T: type, value: *T) void {
   const sliceOfOne: []T = (*[1]T)(value)[0..];
   const memory: []u8 = ([]u8)(sliceOfOne);
