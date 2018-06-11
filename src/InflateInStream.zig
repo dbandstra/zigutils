@@ -220,7 +220,7 @@ test "InflateInStream: fails with InvalidStream on bad input" {
 
   var buffer: [256]u8 = undefined;
 
-  if (inflateStream.stream.read(buffer[0..])) |_| {
+  if (inflateStream.stream.read(buffer[0..])) {
     unreachable;
   } else |err| {
     std.debug.assert(err == InflateInStream(SimpleInStream.ReadError).Error.InvalidStream);

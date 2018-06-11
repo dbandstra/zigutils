@@ -82,14 +82,11 @@ test "SimpleOutStream: writing a string that doesn't fit" {
   var buffer: [10]u8 = undefined;
   var sos = SimpleOutStream.init(buffer[0..]);
 
-  // FIXME - there must be a better way to write this
-  var outOfSpaceErrorThrown = false;
+  if (sos.stream.print("This string is too long.")) {
+    unreachable;
+  } else |err| {
+    std.debug.assert(err == SimpleOutStreamError.OutOfSpace);
+  }
 
-  sos.stream.print("This string is too long.") catch |err| switch (err) {
-    SimpleOutStreamError.OutOfSpace => outOfSpaceErrorThrown = true, // ok
-    else => {}, // (print function can throw errors) not ok
-  };
-
-  std.debug.assert(outOfSpaceErrorThrown == true);
   std.debug.assert(std.mem.eql(u8, sos.getSlice(), "This strin"));
 }

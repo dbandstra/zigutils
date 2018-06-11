@@ -168,17 +168,15 @@ test "SimpleInStream: seeking around" {
   const br4 = try sis.stream.read(dest_buf[0..]);
   std.debug.assert(std.mem.eql(u8, dest_buf[0..br4], "ce."));
 
-  var gotExpectedError = false;
-  sis.seekable.seekTo(999) catch |err| switch (err) {
-    Seekable.Error.SeekError => gotExpectedError = true,
-    else => {},
-  };
-  std.debug.assert(gotExpectedError);
+  if (sis.seekable.seekTo(999)) {
+    unreachable;
+  } else |err| {
+    std.debug.assert(err == Seekable.Error.SeekError);
+  }
 
-  gotExpectedError = false;
-  sis.seekable.seekForward(-999) catch |err| switch (err) {
-    Seekable.Error.SeekError => gotExpectedError = true,
-    else => {},
-  };
-  std.debug.assert(gotExpectedError);
+  if (sis.seekable.seekForward(-999)) {
+    unreachable;
+  } else |err| {
+    std.debug.assert(err == Seekable.Error.SeekError);
+  }
 }
