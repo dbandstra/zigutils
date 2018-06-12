@@ -1,0 +1,139 @@
+const std = @import("std");
+const c = @import("c.zig");
+const util = @import("util.zig");
+const OwnerId = @import("OwnerId.zig").OwnerId;
+
+// The reason this has been split off from InflateInStream is that it contains
+// a lot of state and allocations. Splitting it off allows it to be reused by
+// multiple InflateInStreams
+
+pub const Inflater = struct {
+  const Self = this;
+
+  pub const Error = error{
+    ZlibVersionError,
+    InvalidStream, // invalid/corrupt input
+    OutOfMemory, // zlib's internal allocation failed
+  };
+
+  allocator: *std.mem.Allocator,
+  windowBits: i32,
+  zlib_stream_active: bool,
+  zlib_stream: c.z_stream,
+  resetting: bool,
+  owned_by: ?OwnerId,
+
+  pub fn init(
+    allocator: *std.mem.Allocator,
+    windowBits: i32,
+  ) Self {
+    var self = Self{
+      .allocator = allocator,
+      .windowBits = windowBits,
+      .zlib_stream_active = false,
+      .zlib_stream = undefined,
+      .resetting = false,
+      .owned_by = null,
+    };
+    util.clearStruct(c.z_stream, &self.zlib_stream); // 112 bytes
+    self.zlib_stream.zalloc = zalloc;
+    self.zlib_stream.zfree = zfree;
+    self.zlib_stream.opaque = @ptrCast(*c_void, allocator);
+    return self;
+  }
+
+  pub fn deinit(self: *Inflater) void {
+    std.debug.assert(self.owned_by == null); // FIXME
+
+    if (self.zlib_stream_active) {
+      const ret = c.inflateEnd(c.ptr(&self.zlib_stream));
+      std.debug.assert(ret == c.Z_OK);
+      self.zlib_stream_active = false;
+    }
+  }
+
+  pub fn attachOwner(self: *Inflater, owner_id: *const OwnerId) void {
+    if (self.owned_by) |_| {
+      unreachable;
+    }
+    self.owned_by = owner_id.*;
+  }
+
+  pub fn detachOwner(self: *Inflater, owner_id: *const OwnerId) void {
+    self.verifyOwner(owner_id);
+    self.owned_by = null;
+    self.resetting = true;
+
+    self.zlib_stream.next_in = @intToPtr([*]u8, 0);
+    self.zlib_stream.avail_in = 0;
+    self.zlib_stream.total_in = 0;
+  }
+
+  pub fn setInput(self: *Inflater, owner_id: *const OwnerId, source: []const u8) void {
+    self.verifyOwner(owner_id);
+
+    // `next_in` is const, but zig doesn't pick up on that
+    self.zlib_stream.next_in = @intToPtr([*]u8, @ptrToInt(source.ptr));
+    self.zlib_stream.avail_in = c_uint(source.len);
+    self.zlib_stream.total_in = 0;
+  }
+
+  pub fn prepare(self: *Inflater, owner_id: *const OwnerId, buffer: []u8) Error!void {
+    self.verifyOwner(owner_id);
+
+    if (!self.zlib_stream_active) {
+      const version = c.ZLIB_VERSION;
+      const stream_size: c_int = @sizeOf(c.z_stream);
+
+      switch (c.inflateInit2_(c.ptr(&self.zlib_stream), self.windowBits, version, stream_size)) {
+        c.Z_OK => {},
+        c.Z_VERSION_ERROR => return Error.ZlibVersionError,
+        c.Z_MEM_ERROR => return Error.OutOfMemory,
+        else => unreachable,
+      }
+      self.zlib_stream_active = true;
+    } else if (self.resetting) {
+      // zlib_stream is already initialized, but owner has changed. reset it
+      // (resetting is like end+init, but reuses allocations).
+      const ret = c.inflateReset(c.ptr(&self.zlib_stream));
+      std.debug.assert(ret == c.Z_OK);
+    }
+
+    self.resetting = false;
+
+    self.zlib_stream.next_out = buffer.ptr;
+    self.zlib_stream.avail_out = c_uint(buffer.len);
+    self.zlib_stream.total_out = 0;
+  }
+
+  // TODO - move more code from InflateInStream tos here
+  pub fn inflate(self: *Inflater, owner_id: *const OwnerId) c_int {
+    self.verifyOwner(owner_id);
+    if (!self.zlib_stream_active) {
+      unreachable; // FIXME
+    }
+    return c.inflate(c.ptr(&self.zlib_stream), c.Z_SYNC_FLUSH);
+  }
+
+  fn verifyOwner(self: *Inflater, owner_id: *const OwnerId) void {
+    if (self.owned_by) |owned_by| {
+      if (owned_by.id != owner_id.id) {
+        unreachable; // FIXME
+      }
+    } else {
+      unreachable; // FIXME
+    }
+  }
+
+  extern fn zalloc(opaque: ?*c_void, items: c_uint, size: c_uint) ?*c_void {
+    const allocator = @ptrCast(*std.mem.Allocator, @alignCast(@alignOf(std.mem.Allocator), opaque.?));
+
+    return util.allocCPointer(allocator, items * size);
+  }
+
+  extern fn zfree(opaque: ?*c_void, address: ?*c_void) void {
+    const allocator = @ptrCast(*std.mem.Allocator, @alignCast(@alignOf(std.mem.Allocator), opaque.?));
+
+    util.freeCPointer(allocator, address);
+  }
+};
