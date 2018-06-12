@@ -78,17 +78,17 @@ pub fn InflateInStream(comptime SourceError: type) type {
 }
 
 test "InflateInStream: works on valid input" {
-  const SimpleInStream = @import("SimpleInStream.zig").SimpleInStream;
+  const MemoryInStream = @import("MemoryInStream.zig").MemoryInStream;
 
   const compressedData = @embedFile("testdata/adler32.c-compressed");
   const uncompressedData = @embedFile("testdata/adler32.c");
 
-  var source = SimpleInStream.init(compressedData);
+  var source = MemoryInStream.init(compressedData);
 
   var inflater = Inflater.init(std.debug.global_allocator, -15);
   defer inflater.deinit();
   var inflaterBuf: [256]u8 = undefined;
-  var inflateStream = InflateInStream(SimpleInStream.ReadError).init(&inflater, &source.stream, inflaterBuf[0..]);
+  var inflateStream = InflateInStream(MemoryInStream.ReadError).init(&inflater, &source.stream, inflaterBuf[0..]);
   defer inflateStream.deinit();
 
   var buffer: [256]u8 = undefined;
@@ -107,16 +107,16 @@ test "InflateInStream: works on valid input" {
 }
 
 test "InflateInStream: fails with InvalidStream on bad input" {
-  const SimpleInStream = @import("SimpleInStream.zig").SimpleInStream;
+  const MemoryInStream = @import("MemoryInStream.zig").MemoryInStream;
 
   const uncompressedData = @embedFile("testdata/adler32.c");
 
-  var source = SimpleInStream.init(uncompressedData);
+  var source = MemoryInStream.init(uncompressedData);
 
   var inflater = Inflater.init(std.debug.global_allocator, -15);
   defer inflater.deinit();
   var inflateBuf: [256]u8 = undefined;
-  var inflateStream = InflateInStream(SimpleInStream.ReadError).init(&inflater, &source.stream, inflateBuf[0..]);
+  var inflateStream = InflateInStream(MemoryInStream.ReadError).init(&inflater, &source.stream, inflateBuf[0..]);
   defer inflateStream.deinit();
 
   var buffer: [256]u8 = undefined;
@@ -124,6 +124,6 @@ test "InflateInStream: fails with InvalidStream on bad input" {
   if (inflateStream.stream.read(buffer[0..])) {
     unreachable;
   } else |err| {
-    std.debug.assert(err == InflateInStream(SimpleInStream.ReadError).Error.InvalidStream);
+    std.debug.assert(err == InflateInStream(MemoryInStream.ReadError).Error.InvalidStream);
   }
 }

@@ -45,12 +45,12 @@ pub fn LoadTga(comptime ReadError: type) type {
 }
 
 test "LoadTga" {
-  const SimpleInStream = @import("SimpleInStream.zig").SimpleInStream;
+  const MemoryInStream = @import("MemoryInStream.zig").MemoryInStream;
   const allocator = std.debug.global_allocator;
 
-  var source = SimpleInStream.init(@embedFile("testdata/gem.tga"));
+  var source = MemoryInStream.init(@embedFile("testdata/gem.tga"));
 
-  const image = try LoadTga(SimpleInStream.ReadError).load(&source.stream, allocator);
+  const image = try LoadTga(MemoryInStream.ReadError).load(&source.stream, allocator);
   defer allocator.destroy(image);
 
   std.debug.assert(image.width == 12);

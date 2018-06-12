@@ -27,8 +27,8 @@ Locates a file in a zip archive (provided via source `InStream`+`Seekable`). Ret
 ### Seekable
 Trait interface with the following methods: seekForward, seekTo, getPos, getEndPos.
 
-### SimpleInStream
+### MemoryInStream
 Reads data from an in-memory byte slice. Implements `InStream` and `Seekable`.
 
-### SimpleOutStream
+### MemoryOutStream
 Writes data to a provided byte slice. Implements `OutStream`.
