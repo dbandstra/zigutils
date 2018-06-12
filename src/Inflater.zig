@@ -5,7 +5,7 @@ const OwnerId = @import("OwnerId.zig").OwnerId;
 
 // The reason this has been split off from InflateInStream is that it contains
 // a lot of state and allocations. Splitting it off allows it to be reused by
-// multiple InflateInStreams
+// multiple InflateInStreams, e.g. to uncompress multiple files
 
 pub const Inflater = struct {
   const Self = this;
@@ -23,10 +23,7 @@ pub const Inflater = struct {
   resetting: bool,
   owned_by: ?OwnerId,
 
-  pub fn init(
-    allocator: *std.mem.Allocator,
-    windowBits: i32,
-  ) Self {
+  pub fn init(allocator: *std.mem.Allocator, windowBits: i32) Self {
     var self = Self{
       .allocator = allocator,
       .windowBits = windowBits,
@@ -69,10 +66,20 @@ pub const Inflater = struct {
     self.zlib_stream.total_in = 0;
   }
 
+  pub fn getNumBytesWritten(self: *const Inflater) usize {
+    return self.zlib_stream.total_out;
+  }
+
+  pub fn isInputExhausted(self: *const Inflater) bool {
+    return self.zlib_stream.avail_in == 0;
+  }
+
   pub fn setInput(self: *Inflater, owner_id: *const OwnerId, source: []const u8) void {
     self.verifyOwner(owner_id);
 
-    // `next_in` is const, but zig doesn't pick up on that
+    std.debug.assert(self.zlib_stream.avail_in == 0);
+
+    // `next_in` is const, but zig didn't pick up on that
     self.zlib_stream.next_in = @intToPtr([*]u8, @ptrToInt(source.ptr));
     self.zlib_stream.avail_in = c_uint(source.len);
     self.zlib_stream.total_in = 0;
@@ -106,13 +113,22 @@ pub const Inflater = struct {
     self.zlib_stream.total_out = 0;
   }
 
-  // TODO - move more code from InflateInStream tos here
-  pub fn inflate(self: *Inflater, owner_id: *const OwnerId) c_int {
+  // return true if done or output buffer is full.
+  // return false if more input is needed
+  pub fn inflate(self: *Inflater, owner_id: *const OwnerId) Error!bool {
     self.verifyOwner(owner_id);
     if (!self.zlib_stream_active) {
       unreachable; // FIXME
     }
-    return c.inflate(c.ptr(&self.zlib_stream), c.Z_SYNC_FLUSH);
+    return switch (c.inflate(c.ptr(&self.zlib_stream), c.Z_SYNC_FLUSH)) {
+      c.Z_STREAM_END => true,
+      c.Z_OK => self.zlib_stream.avail_out == 0,
+      c.Z_STREAM_ERROR => unreachable,
+      c.Z_NEED_DICT => Error.InvalidStream,
+      c.Z_DATA_ERROR => Error.InvalidStream,
+      c.Z_MEM_ERROR => Error.OutOfMemory,
+      else => unreachable,
+    };
   }
 
   fn verifyOwner(self: *Inflater, owner_id: *const OwnerId) void {

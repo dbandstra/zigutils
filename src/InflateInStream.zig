@@ -1,5 +1,4 @@
 const std = @import("std");
-const c = @import("c.zig");
 const Inflater = @import("Inflater.zig").Inflater;
 const OwnerId = @import("OwnerId.zig").OwnerId;
 
@@ -45,78 +44,34 @@ pub fn InflateInStream(comptime SourceError: type) type {
       self.inflater.detachOwner(self.owner_id);
     }
 
+    fn maybeRefillInput(self: *InflateInStream(SourceError)) SourceError!void {
+      if (self.inflater.isInputExhausted()) {
+        const num_bytes = try self.source.read(self.compressed_buffer);
+
+        self.inflater.setInput(self.owner_id, self.compressed_buffer[0..num_bytes]);
+      }
+    }
+
     fn readFn(in_stream: *ImplStream, buffer: []u8) Error!usize {
+      const self = @fieldParentPtr(InflateInStream(SourceError), "stream", in_stream);
+
       if (buffer.len == 0) {
         return 0;
       }
 
-      const self = @fieldParentPtr(InflateInStream(SourceError), "stream", in_stream);
-
-      // possible states coming into this function:
-
-      // - first run.
-      //    * self.inflater.zlib_stream_active == false
-      //    * self.inflater.zlib_stream.avail_in == 0
-      //    * self.inflater.zlib_stream.avail_out == 0
-
-      // - ran before, output buffer was full that time.
-      //    * self.inflater.zlib_stream_active == true
-      //    * self.inflater.zlib_stream.avail_in >= 0
-      //    * self.inflater.zlib_stream.avail_out == 0
-
-      // - ran before, done.
-      //    * self.inflater.zlib_stream_active == true
-      //    * self.inflater.zlib_stream.avail_in == 0
-      //    * self.inflater.zlib_stream.avail_out == ?
-
-      // this must be called before the first call to `prepare`!
-      if (self.inflater.zlib_stream.avail_in == 0) {
-        const num_bytes = try self.source.read(self.compressed_buffer);
-        self.inflater.setInput(self.owner_id, self.compressed_buffer[0..num_bytes]);
-      }
-
+      try self.maybeRefillInput();
       try self.inflater.prepare(self.owner_id, buffer);
 
-      // loop until source is finished, or the output buffer is full.
-      // if inflate runs out of input, feed it more and do it again.
-      while (true) {
-        switch (self.inflater.inflate(self.owner_id)) {
-          c.Z_STREAM_END => {
-            // reached the end of the file
-            return usize(self.inflater.zlib_stream.total_out);
-          },
-          c.Z_OK => {
-            if (self.inflater.zlib_stream.avail_out == 0) {
-              // filled the output buffer, finished
-              return usize(self.inflater.zlib_stream.total_out);
-            }
-
-            if (self.inflater.zlib_stream.avail_in == 0) {
-              // consumed the input buffer, refill it
-              const num_bytes = try self.source.read(self.compressed_buffer);
-              self.inflater.setInput(self.owner_id, self.compressed_buffer[0..num_bytes]);
-            }
-          },
-          c.Z_STREAM_ERROR => {
-            // state was not initialized properly. but we did initialize it,
-            // so this could only happen if the memory for this object got
-            // clobbered by other code in the application
-            unreachable;
-          },
-          c.Z_NEED_DICT => {
-            // this data was compressed with a custom dictionary
-            return Error.InvalidStream;
-          },
-          c.Z_DATA_ERROR => {
-            // invalid/corrupted data in stream
-            return Error.InvalidStream;
-          },
-          c.Z_MEM_ERROR => {
-            // allocation failed
-            return Error.OutOfMemory;
-          },
-          else => unreachable,
+      // this is weird, `while(x) |y|` has three possible meanings...
+      // boolean, null, error... i guess error outranks boolean?
+      while (self.inflater.inflate(self.owner_id)) |done| {
+        if (done) {
+          return self.inflater.getNumBytesWritten();
+        } else {
+          try self.maybeRefillInput();
         }
+      } else |err| {
+        return err;
       }
     }
   };
