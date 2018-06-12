@@ -16,7 +16,10 @@ Writes data to a provided ArrayList(u8). Implements `OutStream`. Basically an in
 Like the FileInStream from std, but also implements `Seekable`.
 
 ### InflateInStream
-Decompresses data from a source `InStream`. Implements `InStream`. Requires zlib.
+Decompresses data from a source `InStream`, using an `Inflater`. Implements `InStream`.
+
+### Inflater
+Wrapper around zlib's inflate routines. Requires zlib.
 
 ### LineReader
 Replacement for `read_line` from std. The line is written to an `OutStream`. If writing fails partway (e.g. OutStream is full), it will still consume and discard the rest of the line.
