@@ -9,6 +9,9 @@ Some [Zig](https://github.com/ziglang/zig) functions, nothing finished or polish
 
 ## Contents
 
+### ArrayListOutStream
+Writes data to a provided ArrayList(u8). Implements `OutStream`. Basically an inefficient example of an OutStream that doesn't have to worry about buffer sizes.
+
 ### FileInStream
 Like the FileInStream from std, but also implements `Seekable`.
 
