@@ -6,4 +6,5 @@ comptime {
   _ = @import("src/MemoryInStream.zig");
   _ = @import("src/MemoryOutStream.zig");
   _ = @import("src/test/ConsumeSeekableInStream.zig");
+  _ = @import("src/test/ZipTest.zig");
 }

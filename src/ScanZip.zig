@@ -1,6 +1,7 @@
 const std = @import("std");
 const InStream = std.io.InStream;
 const Seekable = @import("traits/Seekable.zig").Seekable;
+const readOneNoEof = @import("util.zig").readOneNoEof;
 
 // currently able to locate a single file in a zip archive.
 // TODO - figure out what a scanning/iterating interface would look like
@@ -60,7 +61,6 @@ pub fn ScanZip(comptime ReadError: type) type {
       seekable: *Seekable,
       filename: []const u8,
     ) !?ZipFileInfo {
-      std.debug.warn("\n");
       while (true) {
         var valid = true;
         var descriptor = false;
@@ -68,7 +68,7 @@ pub fn ScanZip(comptime ReadError: type) type {
 
         var header: ZipHeader = undefined;
 
-        try readOneNoEof(stream, ZipHeader, &header);
+        try readOneNoEof(ReadError, stream, ZipHeader, &header);
 
         // have we reached the central directory?
         if (header.header == FILEHEADER_SIGNATURE) {
@@ -136,15 +136,6 @@ pub fn ScanZip(comptime ReadError: type) type {
       }
 
       return null;
-    }
-
-    // copied from macho.zig
-    fn readNoEof(in: *InStream(ReadError), comptime T: type, result: []T) !void {
-      return in.readNoEof(([]u8)(result));
-    }
-
-    fn readOneNoEof(in: *InStream(ReadError), comptime T: type, result: *T) !void {
-      return readNoEof(in, T, (*[1]T)(result)[0..]);
     }
   };
 }

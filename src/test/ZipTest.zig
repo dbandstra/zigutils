@@ -4,40 +4,41 @@ const InStream = std.io.InStream;
 const Seekable = @import("../traits/Seekable.zig").Seekable;
 const SeekableFileInStream = @import("../FileInStream.zig").SeekableFileInStream;
 const ScanZip = @import("../ScanZip.zig").ScanZip;
+const Inflater = @import("../Inflater.zig").Inflater;
 const InflateInStream = @import("../InflateInStream.zig").InflateInStream;
 
-// not really a test...
-test "ScanZip" {
-  var file = try File.openRead(std.debug.global_allocator, "zlib1211.zip");
+test "ZipTest: locale and uncompress a file from a zip archive" {
+  const uncompressedData = @embedFile("../testdata/adler32.c");
+
+  var file = try File.openRead(std.debug.global_allocator, "src/testdata/zlib1211.zip");
   defer file.close();
   var sfis = SeekableFileInStream.init(&file);
 
-  const info = try ScanZip(SeekableFileInStream.ReadError).find_file(&sfis.stream, &sfis.seekable, "zlib-1.2.11/zconf.h");
+  const info = try ScanZip(SeekableFileInStream.ReadError).find_file(&sfis.stream, &sfis.seekable, "zlib-1.2.11/adler32.c");
 
   if (info) |fileInfo| {
-    std.debug.warn("got\n");
-
-    // now inflate
     try sfis.seekable.seekTo(fileInfo.offset);
 
-    if (fileInfo.isCompressed) {
-      std.debug.warn("compressed ({}), full {}\n", fileInfo.compressedSize, fileInfo.uncompressedSize);
+    std.debug.assert(fileInfo.isCompressed);
+    std.debug.assert(fileInfo.uncompressedSize == uncompressedData.len);
 
-      var inflateBuf: [256]u8 = undefined;
-      var iis = InflateInStream(SeekableFileInStream.ReadError).init(&sfis.stream, std.debug.global_allocator);
-      defer iis.deinit();
+    var inflater = Inflater.init(std.debug.global_allocator, -15);
+    defer inflater.deinit();
+    var inflateBuf: [256]u8 = undefined;
+    var iis = InflateInStream(SeekableFileInStream.ReadError).init(&inflater, &sfis.stream, inflateBuf[0..]);
+    defer iis.deinit();
 
-      while (true) {
-        const bytesRead = try iis.stream.read(inflateBuf[0..]);
-        if (bytesRead == 0) {
-          break;
-        }
-        std.debug.warn("{}", inflateBuf[0..bytesRead]);
+    var index: usize = 0;
+    while (true) {
+      var buffer: [256]u8 = undefined;
+      const bytesRead = try iis.stream.read(buffer[0..]);
+      if (bytesRead == 0) {
+        break;
       }
-
-      std.debug.warn("\n");
+      std.debug.assert(std.mem.eql(u8, buffer[0..bytesRead], uncompressedData[index..index + bytesRead]));
+      index += bytesRead;
     }
   } else {
-    std.debug.warn("didn't got\n");
+    unreachable;
   }
 }

@@ -17,6 +17,16 @@ pub fn skip(comptime Error: type, instream: *std.io.InStream(Error), n: usize) E
   }
 }
 
+// copied from macho.zig
+pub fn readNoEof(comptime ReadError: type, in: *std.io.InStream(ReadError), comptime T: type, result: []T) !void {
+  return in.readNoEof(([]u8)(result));
+}
+
+// copied from macho.zig
+pub fn readOneNoEof(comptime ReadError: type, in: *std.io.InStream(ReadError), comptime T: type, result: *T) !void {
+  return readNoEof(ReadError, in, T, (*[1]T)(result)[0..]);
+}
+
 pub fn clearStruct(comptime T: type, value: *T) void {
   const sliceOfOne: []T = (*[1]T)(value)[0..];
   const memory: []u8 = ([]u8)(sliceOfOne);

@@ -55,6 +55,9 @@ pub fn InflateInStream(comptime SourceError: type) type {
     fn readFn(in_stream: *ImplStream, buffer: []u8) Error!usize {
       const self = @fieldParentPtr(InflateInStream(SourceError), "stream", in_stream);
 
+      // anticipate footgun (sometimes forget you need two buffers)
+      std.debug.assert(buffer.ptr != self.compressed_buffer.ptr);
+
       if (buffer.len == 0) {
         return 0;
       }
