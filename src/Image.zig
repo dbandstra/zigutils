@@ -150,7 +150,7 @@ pub fn LoadTga(comptime ReadError: type) type {
               } else {
                 pixbuf[3] = 255;
               }
-              
+
               pixbuf += 4;
 
               x += 1;
@@ -174,7 +174,34 @@ pub fn LoadTga(comptime ReadError: type) type {
   };
 }
 
+fn WritePpm(comptime WriteError: type) type {
+  return struct {
+    fn write(image: *const Image, stream: *std.io.OutStream(WriteError)) !void {
+      try stream.print("P3\n");
+      try stream.print("{} {}\n", image.width, image.height);
+      try stream.print("255\n");
+      var y: usize = 0;
+      while (y < image.height) {
+        var x: usize = 0;
+        while (x < image.width) {
+          const r = image.pixels[(y * image.width + x) * 4 + 0];
+          const g = image.pixels[(y * image.width + x) * 4 + 1];
+          const b = image.pixels[(y * image.width + x) * 4 + 2];
+          if (x > 0) {
+            try stream.print(" ");
+          }
+          try stream.print("{} {} {}", r, g, b);
+          x += 1;
+        }
+        try stream.print("\n");
+        y += 1;
+      }
+    }
+  };
+}
+
 test "LoadTga" {
+  const ArrayListOutStream = @import("ArrayListOutStream.zig").ArrayListOutStream;
   const MemoryInStream = @import("MemoryInStream.zig").MemoryInStream;
   const allocator = std.debug.global_allocator;
 
@@ -183,26 +210,12 @@ test "LoadTga" {
   const image = try LoadTga(MemoryInStream.ReadError).load(&source.stream, allocator);
   defer allocator.destroy(image);
 
-  std.debug.assert(image.width == 12);
-  std.debug.assert(image.height == 12);
+  // write image as PPM and compare it the copy in testdata
+  var arrayList = std.ArrayList(u8).init(std.debug.global_allocator);
+  defer arrayList.deinit();
+  var alos = ArrayListOutStream.init(&arrayList);
 
-  var file = try std.os.File.openWrite(std.debug.global_allocator, "out.ppm");
-  defer file.close();
-  var fos = std.io.FileOutStream.init(&file);
-  try fos.stream.print("P3\n");
-  try fos.stream.print("{} {}\n", image.width, image.height);
-  try fos.stream.print("255\n");
-  var y: usize = 0;
-  while (y < image.height) {
-    var x: usize = 0;
-    while (x < image.width) {
-      const r = image.pixels[(y * image.width + x) * 4 + 0];
-      const g = image.pixels[(y * image.width + x) * 4 + 1];
-      const b = image.pixels[(y * image.width + x) * 4 + 2];
-      try fos.stream.print("{} {} {} ", r, g, b);
-      x += 1;
-    }
-    try fos.stream.print("\n");
-    y += 1;
-  }
+  try WritePpm(ArrayListOutStream.Error).write(image, &alos.stream);
+
+  std.debug.assert(std.mem.eql(u8, arrayList.toSliceConst(), @embedFile("testdata/gem.ppm")));
 }
