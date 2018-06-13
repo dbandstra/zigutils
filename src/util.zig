@@ -2,8 +2,10 @@ const builtin = @import("builtin");
 const std = @import("std");
 
 // should this be added to InStream?
-// FIXME - i can't use `!void` return type, it complains
-// that i don't return any error, but i do. compiler bug?
+// no... utility methods should probably be kept out of the InStream struct itself.
+// this is where a trait/interface language feature would be nice. you define functions outside
+// the struct itself, but they are put into the struct's namespace
+// FIXME - i can't use `!void` return type, it complains that i don't return any error, but i do. compiler bug?
 pub fn skip(comptime Error: type, instream: *std.io.InStream(Error), n: usize) Error!void {
   var buffer: [200]u8 = undefined;
   var i: usize = 0;
