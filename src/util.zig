@@ -1,3 +1,4 @@
+const builtin = @import("builtin");
 const std = @import("std");
 
 // should this be added to InStream?
@@ -64,4 +65,37 @@ pub fn freeCPointer(allocator: *std.mem.Allocator, address: ?*c_void) void {
   const bytes = @ptrCast([*]u8, address)[0..len];
 
   allocator.free(bytes);
+}
+
+pub fn fieldMeta(comptime Struct: type, comptime fieldName: []const u8, comptime endian: builtin.Endian) type {
+  const field = blk: {
+    for (@typeInfo(Struct).Struct.fields) |field| {
+      if (std.mem.eql(u8, field.name, fieldName)) {
+        break :blk field;
+      }
+    }
+
+    @compileError("fieldMeta: field not found");
+  };
+
+  if (field.offset == null) {
+    // offset is null if field has no size?
+    @compileError("fieldMeta: field has no offset");
+  }
+
+  const fieldSize = @sizeOf(field.field_type);
+  const offset = field.offset orelse 0;
+
+  return struct {
+    fn read(instance: *const Struct) field.field_type {
+      const bytes = @intToPtr([*]u8, @ptrToInt(instance) + offset)[0..fieldSize];
+
+      // should be a compile error if type is not an integer. i could add support for other types later
+      return std.mem.readInt(bytes, field.field_type, endian);
+    }
+
+    fn getType() type {
+      return field.field_type;
+    }
+  };
 }

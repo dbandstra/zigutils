@@ -34,4 +34,4 @@ Reads data from an in-memory byte slice. Implements `InStream` and `Seekable`.
 Writes data to a provided byte slice. Implements `OutStream`.
 
 ## Ideas
-Packed and unpacked structs with same fields. Read from disk into packed struct. Somehow transfer values (with byteswapping) to unpacked struct.
+An instream method that reads, matching a provided byte slice. "If I read from the instream does it contain this exact string?"

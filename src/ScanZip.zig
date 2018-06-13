@@ -3,10 +3,12 @@
 // https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
 // https://stackoverflow.com/questions/20762094/how-are-zlib-gzip-and-zip-related-what-do-they-have-in-common-and-how-are-they
 
+const builtin = @import("builtin");
 const std = @import("std");
 const InStream = std.io.InStream;
 const Seekable = @import("traits/Seekable.zig").Seekable;
 const readOneNoEof = @import("util.zig").readOneNoEof;
+const fieldMeta = @import("util.zig").fieldMeta;
 
 // currently able to locate a single file in a zip archive.
 // TODO - figure out what a scanning/iterating interface would look like
@@ -16,55 +18,78 @@ const readOneNoEof = @import("util.zig").readOneNoEof;
 pub const COMPRESSION_NONE: u16 = 0;
 pub const COMPRESSION_DEFLATE: u16 = 8;
 
-const LocalFileHeader = packed struct {
-  signature: u32, // 0x04034b50
-  version: u16,
-  gpFlag: u16,
-  compressionType: u16,
-  lastModifiedTime: u16,
-  lastModifiedDate: u16,
-  crc32: u32,
-  compressedSize: u32,
-  uncompressedSize: u32,
-  filenameLength: u16,
-  extraFieldLength: u16,
-  // extraField: [extraFieldLength]u8,
-  // compressedData: [compressedSize]u8,
+const LocalFileHeader = struct {
+  const Struct = packed struct {
+    signature: u32, // 0x04034b50
+    version: u16,
+    gpFlag: u16,
+    compressionType: u16,
+    lastModifiedTime: u16,
+    lastModifiedDate: u16,
+    crc32: u32,
+    compressedSize: u32,
+    uncompressedSize: u32,
+    filenameLength: u16,
+    extraFieldLength: u16,
+    // extraField: [extraFieldLength]u8,
+    // compressedData: [compressedSize]u8,
+  };
 };
 
-const CentralDirectoryFileHeader = packed struct {
-  signature: u32, // 0x02014b50
-  versionMadeBy: u16,
-  minVersionNeededToExtract: u16,
-  gpFlag: u16,
-  compressionMethod: u16,
-  fileLastModifiedTime: u16,
-  fileLastModifiedDate: u16,
-  crc32: u32,
-  compressedSize: u32,
-  uncompressedSize: u32,
-  fileNameLength: u16,
-  extraFieldLength: u16,
-  fileCommentLength: u16,
-  diskNumberWhereFileStarts: u16,
-  internalFileAttributes: u16,
-  externalFileAttributes: u32,
-  relativeOffsetOfLocalFileHeader: u32,
-  // fileName: [fileNameLength]u8,
-  // extraField: [extraFieldLength]u8,
-  // fileComment: [fileCommentLengthu8],
+const CentralDirectoryFileHeader = struct {
+  const Struct = packed struct {
+    signature: u32, // 0x02014b50
+    versionMadeBy: u16,
+    minVersionNeededToExtract: u16,
+    gpFlag: u16,
+    compressionMethod: u16,
+    fileLastModifiedTime: u16,
+    fileLastModifiedDate: u16,
+    crc32: u32,
+    compressedSize: u32,
+    uncompressedSize: u32,
+    fileNameLength: u16,
+    extraFieldLength: u16,
+    fileCommentLength: u16,
+    diskNumberWhereFileStarts: u16,
+    internalFileAttributes: u16,
+    externalFileAttributes: u32,
+    relativeOffsetOfLocalFileHeader: u32,
+    // fileName: [fileNameLength]u8,
+    // extraField: [extraFieldLength]u8,
+    // fileComment: [fileCommentLengthu8],
+
+    // FIXME - if i put this inside in the packed sturct, i get a mysterious compile error
+    // const signature = fieldMeta(Struct, "signature", builtin.Endian.Little);
+  };
+
+  const signature = fieldMeta(Struct, "signature", builtin.Endian.Little);
+  const compressionMethod = fieldMeta(Struct, "compressionMethod", builtin.Endian.Little);
+  const compressedSize = fieldMeta(Struct, "compressedSize", builtin.Endian.Little);
+  const uncompressedSize = fieldMeta(Struct, "uncompressedSize", builtin.Endian.Little);
+  const relativeOffsetOfLocalFileHeader = fieldMeta(Struct, "relativeOffsetOfLocalFileHeader", builtin.Endian.Little);
+  const fileNameLength = fieldMeta(Struct, "fileNameLength", builtin.Endian.Little);
+  const extraFieldLength = fieldMeta(Struct, "extraFieldLength", builtin.Endian.Little);
+  const fileCommentLength = fieldMeta(Struct, "fileCommentLength", builtin.Endian.Little);
 };
 
-const EndOfCentralDirectoryRecord = packed struct {
-  signature: u32, // 0x06054b50
-  diskNumber: u16,
-  cdStartDisk: u16,
-  cdNumRecordsOnDisk: u16,
-  cdTotalNumRecords: u16,
-  cdSize: u32,
-  cdOffset: u32,
-  commentLength: u16,
-  // comment: [commentLength]u8,
+const EndOfCentralDirectoryRecord = struct {
+  const Struct = packed struct {
+    signature: u32, // 0x06054b50
+    diskNumber: u16,
+    cdStartDisk: u16,
+    cdNumRecordsOnDisk: u16,
+    cdTotalNumRecords: u16,
+    cdSize: u32,
+    cdOffset: u32,
+    commentLength: u16,
+    // comment: [commentLength]u8,
+  };
+
+  const signature = fieldMeta(Struct, "signature", builtin.Endian.Little);
+  const commentLength = fieldMeta(Struct, "commentLength", builtin.Endian.Little);
+  const cdSize = fieldMeta(Struct, "cdSize", builtin.Endian.Little);
+  const cdOffset = fieldMeta(Struct, "cdOffset", builtin.Endian.Little);
 };
 
 pub const CentralDirectoryInfo = struct {
@@ -104,7 +129,7 @@ pub fn ScanZip(comptime ReadError: type) type {
     // locate the central directory by searching backward from the end of the
     // file.
     // assume the seek position is undefined after calling this function.
-    // TODO - optimize this function!
+    // TODO - extremely inefficient, optimize this function!
     pub fn find_central_directory(
       stream: *InStream(ReadError),
       seekable: *Seekable,
@@ -112,14 +137,15 @@ pub fn ScanZip(comptime ReadError: type) type {
       const endPos = try seekable.getEndPos();
 
       // what happens if this goes below 0? zig does something?
-      var pos = endPos - @sizeOf(EndOfCentralDirectoryRecord);
+      var pos = endPos - @sizeOf(EndOfCentralDirectoryRecord.Struct);
 
-      // only search back 65536 bytes because that's the max possible comment
-      // length
-      while (pos > endPos - @sizeOf(EndOfCentralDirectoryRecord) - @maxValue(u16)) {
+      while (pos > endPos - @sizeOf(EndOfCentralDirectoryRecord.Struct) - @maxValue(EndOfCentralDirectoryRecord.commentLength.getType())) {
+        var eocdr: EndOfCentralDirectoryRecord.Struct = undefined;
+
         try seekable.seekTo(pos);
+        try readOneNoEof(ReadError, stream, EndOfCentralDirectoryRecord.Struct, &eocdr);
 
-        const signature = try stream.readIntLe(u32);
+        const signature = EndOfCentralDirectoryRecord.signature.read(&eocdr);
 
         if (signature == 0x06054b50) {
           // signature seems correct, but it could actually be part of the
@@ -127,19 +153,12 @@ pub fn ScanZip(comptime ReadError: type) type {
           // points to the end of the file.
           // FIXME - that could be part of the comment as well? but if that was
           // the case, is it even possible to find the central directory?
-          try seekable.seekTo(pos + @offsetOf(EndOfCentralDirectoryRecord, "commentLength"));
+          const commentLength = EndOfCentralDirectoryRecord.commentLength.read(&eocdr);
 
-          const commentLength = try stream.readIntLe(u16);
-
-          if (pos + @sizeOf(EndOfCentralDirectoryRecord) + commentLength == endPos) {
-            try seekable.seekTo(pos + @offsetOf(EndOfCentralDirectoryRecord, "cdSize"));
-
-            const cdSize = try stream.readIntLe(u32);
-            const cdOffset = try stream.readIntLe(u32);
-
+          if (pos + @sizeOf(EndOfCentralDirectoryRecord.Struct) + commentLength == endPos) {
             return CentralDirectoryInfo{
-              .offset = cdOffset,
-              .size = cdSize,
+              .offset = EndOfCentralDirectoryRecord.cdOffset.read(&eocdr),
+              .size = EndOfCentralDirectoryRecord.cdSize.read(&eocdr),
             };
           }
         }
@@ -159,39 +178,48 @@ pub fn ScanZip(comptime ReadError: type) type {
       var relPos: usize = 0;
 
       while (relPos < cdInfo.size) {
-        try seekable.seekTo(cdInfo.offset + relPos);
+        var fileHeader: CentralDirectoryFileHeader.Struct = undefined;
 
-        const signature = try stream.readIntLe(u32);
+        try seekable.seekTo(cdInfo.offset + relPos);
+        try readOneNoEof(ReadError, stream, CentralDirectoryFileHeader.Struct, &fileHeader);
+
+        const signature = CentralDirectoryFileHeader.signature.read(&fileHeader);
 
         if (signature != 0x02014b50) {
+          // FIXME - if this error is thrown, the stack trace is huge and seemingly garbage?
           return Error.Corrupt;
         }
 
-        try seekable.seekTo(cdInfo.offset + relPos + @offsetOf(CentralDirectoryFileHeader, "compressionMethod"));
-        const compressionMethod = try stream.readIntLe(u16);
-        try seekable.seekTo(cdInfo.offset + relPos + @offsetOf(CentralDirectoryFileHeader, "compressedSize"));
-        const compressedSize = try stream.readIntLe(u32);
-        const uncompressedSize = try stream.readIntLe(u32);
-        const fileNameLength = try stream.readIntLe(u16);
-        const extraFieldLength = try stream.readIntLe(u16);
-        const fileCommentLength = try stream.readIntLe(u16);
         // TODO - make sure disk number is 0 or whatever
-        try seekable.seekTo(cdInfo.offset + relPos + @offsetOf(CentralDirectoryFileHeader, "relativeOffsetOfLocalFileHeader"));
-        const offset = try stream.readIntLe(u32);
+        const fileNameLength = CentralDirectoryFileHeader.fileNameLength.read(&fileHeader);
+        const extraFieldLength = CentralDirectoryFileHeader.extraFieldLength.read(&fileHeader);
+        const fileCommentLength = CentralDirectoryFileHeader.fileCommentLength.read(&fileHeader);
 
-        var filenameBuf: [500]u8 = undefined; // FIXME
+        try seekable.seekTo(cdInfo.offset + relPos + @sizeOf(CentralDirectoryFileHeader.Struct));
+
+        // FIXME - don't use a fixed length buffer here.
+        // actually, it should be possible to compare an unlimited length
+        // string, using a small buffer and a loop... but if the zip spec
+        // has a low filename length limit (i haven't checked) then that's a
+        // waste of effort
+        var filenameBuf: [500]u8 = undefined;
         const n = try stream.read(filenameBuf[0..fileNameLength]);
 
         if (std.mem.eql(u8, filename, filenameBuf[0..n])) {
+          const compressionMethod = CentralDirectoryFileHeader.compressionMethod.read(&fileHeader);
+          const compressedSize = CentralDirectoryFileHeader.compressedSize.read(&fileHeader);
+          const uncompressedSize = CentralDirectoryFileHeader.uncompressedSize.read(&fileHeader);
+          const offset = CentralDirectoryFileHeader.relativeOffsetOfLocalFileHeader.read(&fileHeader);
+
           return ZipFileInfo{
             .compressionMethod = compressionMethod,
             .compressedSize = compressedSize,
             .uncompressedSize = uncompressedSize,
-            .offset = offset + @sizeOf(LocalFileHeader) + fileNameLength + extraFieldLength,
+            .offset = offset + @sizeOf(LocalFileHeader.Struct) + fileNameLength + extraFieldLength,
           };
         }
 
-        relPos += @sizeOf(CentralDirectoryFileHeader);
+        relPos += @sizeOf(CentralDirectoryFileHeader.Struct);
         relPos += fileNameLength;
         relPos += extraFieldLength;
         relPos += fileCommentLength;
