@@ -2,7 +2,6 @@ const std = @import("std");
 const Inflater = @import("Inflater.zig").Inflater;
 const OwnerId = @import("OwnerId.zig").OwnerId;
 
-// TODO - data descriptors
 // TODO - support custom dictionary
 // TODO - add more tests
 

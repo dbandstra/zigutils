@@ -4,10 +4,11 @@ const InStream = std.io.InStream;
 const Seekable = @import("../traits/Seekable.zig").Seekable;
 const SeekableFileInStream = @import("../FileInStream.zig").SeekableFileInStream;
 const ScanZip = @import("../ScanZip.zig").ScanZip;
+const COMPRESSION_DEFLATE = @import("../ScanZip.zig").COMPRESSION_DEFLATE;
 const Inflater = @import("../Inflater.zig").Inflater;
 const InflateInStream = @import("../InflateInStream.zig").InflateInStream;
 
-test "ZipTest: locale and uncompress a file from a zip archive" {
+test "ZipTest: locate and decompress a file from a zip archive" {
   const uncompressedData = @embedFile("../testdata/adler32.c");
 
   var file = try File.openRead(std.debug.global_allocator, "src/testdata/zlib1211.zip");
@@ -19,7 +20,7 @@ test "ZipTest: locale and uncompress a file from a zip archive" {
   if (info) |fileInfo| {
     try sfis.seekable.seekTo(fileInfo.offset);
 
-    std.debug.assert(fileInfo.isCompressed);
+    std.debug.assert(fileInfo.compressionMethod == COMPRESSION_DEFLATE);
     std.debug.assert(fileInfo.uncompressedSize == uncompressedData.len);
 
     var inflater = Inflater.init(std.debug.global_allocator, -15);

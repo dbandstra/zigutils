@@ -5,7 +5,7 @@ const OwnerId = @import("OwnerId.zig").OwnerId;
 
 // The reason this has been split off from InflateInStream is that it contains
 // a lot of state and allocations. Splitting it off allows it to be reused by
-// multiple InflateInStreams, e.g. to uncompress multiple files
+// multiple InflateInStreams, e.g. to decompress multiple files
 
 pub const Inflater = struct {
   const Self = this;
