@@ -19,6 +19,13 @@ pub const Image = struct{
   pixels: []u8,
 };
 
+pub const Pixel = struct {
+  r: u8,
+  g: u8,
+  b: u8,
+  a: u8,
+};
+
 pub fn flipImageVertical(image: *Image) void {
   const bpp = ImageFormat.getBytesPerPixel(image.format);
   const rb = bpp * image.width;
@@ -33,5 +40,36 @@ pub fn flipImageVertical(image: *Image) void {
     const row1 = image.pixels[ofs1..ofs1 + rb];
 
     swapSlices(u8, row0, row1);
+  }
+}
+
+pub fn getPixel(image: *const Image, x: u32, y: u32) ?Pixel {
+  if (x >= image.width or y >= image.height) {
+    return null;
+  } else {
+    const ofs = y * image.width + x;
+
+    switch (image.format) {
+      ImageFormat.RGBA => {
+        const mem = image.pixels[ofs * 4..ofs * 4 + 4];
+
+        return Pixel{
+          .r = mem[0],
+          .g = mem[1],
+          .b = mem[2],
+          .a = mem[3],
+        };
+      },
+      ImageFormat.RGB => {
+        const mem = image.pixels[ofs * 3..ofs * 3 + 3];
+
+        return Pixel{
+          .r = mem[0],
+          .g = mem[1],
+          .b = mem[2],
+          .a = 255,
+        };
+      },
+    }
   }
 }

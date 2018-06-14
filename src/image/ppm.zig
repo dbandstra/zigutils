@@ -1,28 +1,25 @@
 const std = @import("std");
 const Image = @import("image.zig").Image;
+const ImageFormat = @import("image.zig").ImageFormat;
+const getPixel = @import("image.zig").getPixel;
 
 pub fn WritePpm(comptime WriteError: type) type {
   return struct {
-    fn write(image: *const Image, stream: *std.io.OutStream(WriteError)) !void {
+    pub fn write(image: *const Image, stream: *std.io.OutStream(WriteError)) !void {
       try stream.print("P3\n");
       try stream.print("{} {}\n", image.width, image.height);
       try stream.print("255\n");
-      var y: usize = 0;
-      while (y < image.height) {
-        var x: usize = 0;
-        while (x < image.width) {
-          // FIXME - assumes RGBA
-          const r = image.pixels[(y * image.width + x) * 4 + 0];
-          const g = image.pixels[(y * image.width + x) * 4 + 1];
-          const b = image.pixels[(y * image.width + x) * 4 + 2];
+      var y: u32 = 0;
+      while (y < image.height) : (y += 1) {
+        var x: u32 = 0;
+        while (x < image.width) : (x += 1) {
           if (x > 0) {
             try stream.print(" ");
           }
-          try stream.print("{} {} {}", r, g, b);
-          x += 1;
+          const pixel = getPixel(image, x, y).?;
+          try stream.print("{} {} {}", pixel.r, pixel.g, pixel.b);
         }
         try stream.print("\n");
-        y += 1;
       }
     }
   };

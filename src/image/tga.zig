@@ -1,8 +1,11 @@
+const builtin = @import("builtin");
 const std = @import("std");
 const MemoryOutStream = @import("../MemoryOutStream.zig").MemoryOutStream;
+const readOneNoEof = @import("../util.zig").readOneNoEof;
 const skip = @import("../util.zig").skip;
 const Image = @import("image.zig").Image;
 const ImageFormat = @import("image.zig").ImageFormat;
+const Pixel = @import("image.zig").Pixel;
 const flipImageVertical = @import("image.zig").flipImageVertical;
 
 // resources:
@@ -12,8 +15,6 @@ const flipImageVertical = @import("image.zig").flipImageVertical;
 // the goal is for this to be a "reference" tga loader. cleanest possible code,
 // support everything, no concern for performance, robust test suite.
 // once that's done, a performance-oriented implementation can be added
-
-const Pixel = struct { r: u8, g: u8, b: u8, a: u8 };
 
 pub fn LoadTga(comptime ReadError: type) type {
   return struct {
@@ -35,50 +36,60 @@ pub fn LoadTga(comptime ReadError: type) type {
       storeFormat: ImageFormat,
       allocator: *std.mem.Allocator,
     ) LoadError!*Image {
-      const id_length       = try source.readByte();
-      const colormap_type   = try source.readByte();
-      const image_type      = try source.readByte();
-      const colormap_index  = try source.readIntLe(u16);
+      const id_length = try source.readByte();
+      const colormap_type = try source.readByte();
+      const image_type = try source.readByte();
+      const colormap_index = try source.readIntLe(u16);
       const colormap_length = try source.readIntLe(u16);
-      const colormap_size   = try source.readByte();
-      const x_origin        = try source.readIntLe(u16);
-      const y_origin        = try source.readIntLe(u16);
-      const width           = try source.readIntLe(u16);
-      const height          = try source.readIntLe(u16);
-      const pixel_size      = try source.readByte();
-      const attributes      = try source.readByte();
+      const colormap_size = try source.readByte();
+      const x_origin = try source.readIntLe(u16);
+      const y_origin = try source.readIntLe(u16);
+      const width = try source.readIntLe(u16);
+      const height = try source.readIntLe(u16);
+      const pixel_size = try source.readByte();
+      const descriptor = try source.readByte();
+
+      const attr_bits = descriptor & 0x0F;
+      const reserved = (descriptor & 0x10) >> 4;
+      const origin = (descriptor & 0x20) >> 5;
+      const interleaving = (descriptor & 0xC0) >> 6;
 
       if (colormap_type != 0) {
-        // TODO support colormap_type 1
-        return LoadError.Unsupported;
+        return LoadError.Unsupported; // TODO
       }
-      if (colormap_length != 0) {
+      if (reserved != 0) {
+        return LoadError.Corrupt;
+      }
+      if (interleaving != 0) {
         return LoadError.Unsupported;
       }
 
       try skip(ReadError, source, id_length);
 
-      // attributes:
-
-
-      if ((attributes & ~u8(0x28)) != 0) {
-        std.debug.warn("bad attributes\n");
-        return LoadError.Unsupported;
-      }
-
-      // if bit 5 of attributes isn't set, the image has been stored from bottom to top */
-      const bottom_to_top = (attributes & u8(0x20)) == 0;
+      const bottom_to_top = origin == 0;
 
       switch (image_type) {
         else => return LoadError.Corrupt,
         1, 9 => return LoadError.Unsupported, // colormapped (TODO)
         3, 11 => return LoadError.Unsupported, // greyscale (TODO)
         2, 10 => {
-          // true colour image
           const compressed = image_type == 10;
 
-          if (pixel_size != 24 and pixel_size != 32) {
-            std.debug.warn("bad pixel_size\n");
+          if (pixel_size == 16) {
+            if (attr_bits != 0) {
+              return LoadError.Corrupt;
+            } else {
+              return LoadError.Unsupported; // TODO
+            }
+          } else if (pixel_size == 24) {
+            if (attr_bits != 0) {
+              return LoadError.Corrupt;
+            }
+          } else if (pixel_size == 32) {
+            if (attr_bits != 8) {
+              return LoadError.Corrupt;
+            }
+          } else {
             return LoadError.Corrupt;
           }
 
@@ -95,23 +106,40 @@ pub fn LoadTga(comptime ReadError: type) type {
           var i: u32 = 0;
 
           while (i < width * height) {
+            var run_length: u32 = undefined;
+            var is_raw_packet: bool = undefined;
+
             if (compressed) {
               const run_header = try source.readByte();
-              const run_length: u32 = 1 + (run_header & 0x7f); // between 1 and 128 inclusive
-              const is_raw_packet = (run_header & 0x80) == 0;
-              var pixel: Pixel = undefined;
-              var j: u32 = 0;
 
-              while (i < width * height and j < run_length) : ({ i += 1; j += 1; }) {
-                if (j == 0 or is_raw_packet) {
-                  pixel = try readPixel(pixel_size, source);
-                }
+              run_length = 1 + (run_header & 0x7f);
+              is_raw_packet = (run_header & 0x80) == 0;
+            } else {
+              run_length = 1;
+              is_raw_packet = true;
+            }
+
+            if (i + run_length > width * height) {
+              allocator.destroy(image);
+              return LoadError.Corrupt;
+            }
+
+            var j: u32 = 0;
+
+            if (is_raw_packet) {
+              while (j < run_length) : (j += 1) {
+                const pixel = try readPixel(pixel_size, source);
                 writePixel(storeFormat, &dest, pixel);
               }
             } else {
-              writePixel(storeFormat, &dest, try readPixel(pixel_size, source));
-              i += 1;
+              const pixel = try readPixel(pixel_size, source);
+
+              while (j < run_length) : (j += 1) {
+                writePixel(storeFormat, &dest, pixel);
+              }
             }
+
+            i += run_length;
           }
 
           if (bottom_to_top) {
