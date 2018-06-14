@@ -1,3 +1,10 @@
+const std = @import("std");
+const MemoryOutStream = @import("../MemoryOutStream.zig").MemoryOutStream;
+const skip = @import("../util.zig").skip;
+const Image = @import("image.zig").Image;
+const ImageFormat = @import("image.zig").ImageFormat;
+const flipImageVertical = @import("image.zig").flipImageVertical;
+
 // resources:
 // https://en.wikipedia.org/wiki/Truevision_TGA
 // http://www.paulbourke.net/dataformats/tga/
@@ -5,48 +12,6 @@
 // the goal is for this to be a "reference" tga loader. cleanest possible code,
 // support everything, no concern for performance, robust test suite.
 // once that's done, a performance-oriented implementation can be added
-
-const std = @import("std");
-const skip = @import("util.zig").skip;
-const MemoryOutStream = @import("MemoryOutStream.zig").MemoryOutStream;
-
-pub const ImageFormat = enum {
-  RGBA,
-  RGB,
-
-  pub fn getBytesPerPixel(imageFormat: ImageFormat) u32 {
-    switch (imageFormat) {
-      ImageFormat.RGBA => return 4,
-      ImageFormat.RGB => return 3,
-    }
-  }
-};
-
-pub const Image = struct{
-  width: u32,
-  height: u32,
-  format: ImageFormat,
-  pixels: []u8,
-};
-
-pub fn flipImageVertical(image: *Image) void {
-  const bpp = ImageFormat.getBytesPerPixel(image.format);
-
-  var y: u32 = 0;
-
-  while (y < image.height / 2) : (y += 1) {
-    var x: u32 = 0;
-
-    while (x < image.width * bpp) : (x += 1) {
-      const y0 = y;
-      const y1 = image.height - 1 - y;
-
-      const a = image.pixels[y0 * image.width * bpp + x];
-      image.pixels[y0 * image.width * bpp + x] = image.pixels[y1 * image.width * bpp + x];
-      image.pixels[y1 * image.width * bpp + x] = a;
-    }
-  }
-}
 
 const Pixel = struct { r: u8, g: u8, b: u8, a: u8 };
 
@@ -92,6 +57,9 @@ pub fn LoadTga(comptime ReadError: type) type {
       }
 
       try skip(ReadError, source, id_length);
+
+      // attributes:
+
 
       if ((attributes & ~u8(0x28)) != 0) {
         std.debug.warn("bad attributes\n");
@@ -181,39 +149,13 @@ pub fn LoadTga(comptime ReadError: type) type {
   };
 }
 
-fn WritePpm(comptime WriteError: type) type {
-  return struct {
-    fn write(image: *const Image, stream: *std.io.OutStream(WriteError)) !void {
-      try stream.print("P3\n");
-      try stream.print("{} {}\n", image.width, image.height);
-      try stream.print("255\n");
-      var y: usize = 0;
-      while (y < image.height) {
-        var x: usize = 0;
-        while (x < image.width) {
-          // FIXME - assumes RGBA
-          const r = image.pixels[(y * image.width + x) * 4 + 0];
-          const g = image.pixels[(y * image.width + x) * 4 + 1];
-          const b = image.pixels[(y * image.width + x) * 4 + 2];
-          if (x > 0) {
-            try stream.print(" ");
-          }
-          try stream.print("{} {} {}", r, g, b);
-          x += 1;
-        }
-        try stream.print("\n");
-        y += 1;
-      }
-    }
-  };
-}
-
 test "LoadTga: load compressed tga" {
-  const ArrayListOutStream = @import("ArrayListOutStream.zig").ArrayListOutStream;
-  const MemoryInStream = @import("MemoryInStream.zig").MemoryInStream;
+  const ArrayListOutStream = @import("../ArrayListOutStream.zig").ArrayListOutStream;
+  const MemoryInStream = @import("../MemoryInStream.zig").MemoryInStream;
+  const WritePpm = @import("ppm.zig").WritePpm;
   const allocator = std.debug.global_allocator;
 
-  var source = MemoryInStream.init(@embedFile("testdata/gem-compressed.tga"));
+  var source = MemoryInStream.init(@embedFile("../testdata/gem-compressed.tga"));
 
   const image = try LoadTga(MemoryInStream.ReadError).load(&source.stream, ImageFormat.RGBA, allocator);
   defer allocator.destroy(image);
@@ -225,15 +167,16 @@ test "LoadTga: load compressed tga" {
 
   try WritePpm(ArrayListOutStream.Error).write(image, &alos.stream);
 
-  std.debug.assert(std.mem.eql(u8, arrayList.toSliceConst(), @embedFile("testdata/gem.ppm")));
+  std.debug.assert(std.mem.eql(u8, arrayList.toSliceConst(), @embedFile("../testdata/gem.ppm")));
 }
 
 test "LoadTga: load uncompressed tga" {
-  const ArrayListOutStream = @import("ArrayListOutStream.zig").ArrayListOutStream;
-  const MemoryInStream = @import("MemoryInStream.zig").MemoryInStream;
+  const ArrayListOutStream = @import("../ArrayListOutStream.zig").ArrayListOutStream;
+  const MemoryInStream = @import("../MemoryInStream.zig").MemoryInStream;
+  const WritePpm = @import("ppm.zig").WritePpm;
   const allocator = std.debug.global_allocator;
 
-  var source = MemoryInStream.init(@embedFile("testdata/gem-uncompressed.tga"));
+  var source = MemoryInStream.init(@embedFile("../testdata/gem-uncompressed.tga"));
 
   const image = try LoadTga(MemoryInStream.ReadError).load(&source.stream, ImageFormat.RGBA, allocator);
   defer allocator.destroy(image);
@@ -245,5 +188,5 @@ test "LoadTga: load uncompressed tga" {
 
   try WritePpm(ArrayListOutStream.Error).write(image, &alos.stream);
 
-  std.debug.assert(std.mem.eql(u8, arrayList.toSliceConst(), @embedFile("testdata/gem.ppm")));
+  std.debug.assert(std.mem.eql(u8, arrayList.toSliceConst(), @embedFile("../testdata/gem.ppm")));
 }

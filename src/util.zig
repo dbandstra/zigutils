@@ -20,6 +20,16 @@ pub fn skip(comptime Error: type, instream: *std.io.InStream(Error), n: usize) E
   }
 }
 
+pub fn swapSlices(comptime T: type, a: []T, b: []T) void {
+  std.debug.assert(a.len == b.len);
+  var i: usize = 0;
+  while (i < a.len) : (i += 1) {
+    const value = a[i];
+    a[i] = b[i];
+    b[i] = value;
+  }
+}
+
 // copied from macho.zig
 pub fn readNoEof(comptime ReadError: type, in: *std.io.InStream(ReadError), comptime T: type, result: []T) !void {
   return in.readNoEof(([]u8)(result));
