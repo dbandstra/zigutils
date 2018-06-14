@@ -15,6 +15,9 @@ Writes data to a provided ArrayList(u8). Implements `OutStream`. Basically an in
 ### FileInStream
 Like the FileInStream from std, but also implements `Seekable`.
 
+### LoadTga
+Load a TGA image from a source `InStream`. So far supports 24 and 32 bit images.
+
 ### InflateInStream
 Decompresses data from a source `InStream`, using an `Inflater`. Implements `InStream`.
 
@@ -35,6 +38,9 @@ Reads data from an in-memory byte slice. Implements `InStream` and `Seekable`.
 
 ### MemoryOutStream
 Writes data to a provided byte slice. Implements `OutStream`.
+
+### WritePpm
+Save an image in the very simple PPM format (useful for tests).
 
 ## Ideas
 An instream method that reads, matching a provided byte slice. "If I read from the instream does it contain this exact string?"
