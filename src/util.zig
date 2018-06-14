@@ -20,6 +20,21 @@ pub fn skip(comptime Error: type, instream: *std.io.InStream(Error), n: usize) E
   }
 }
 
+// read from the instream, expecting to find the given string.
+// return true if it was found.
+// FIXME - if i use `Error!bool` return type, i get a weird compile error
+pub fn requireStringInStream(comptime Error: type, instream: *std.io.InStream(Error), string: []const u8) !bool {
+  for (string) |expectedByte| {
+    const actualByte = try instream.readByte();
+
+    if (actualByte != expectedByte) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 pub fn swapSlices(comptime T: type, a: []T, b: []T) void {
   std.debug.assert(a.len == b.len);
   var i: usize = 0;

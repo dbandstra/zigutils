@@ -9,6 +9,7 @@ const InStream = std.io.InStream;
 const Seekable = @import("traits/Seekable.zig").Seekable;
 const readOneNoEof = @import("util.zig").readOneNoEof;
 const fieldMeta = @import("util.zig").fieldMeta;
+const requireStringInStream = @import("util.zig").requireStringInStream;
 
 // currently able to locate a single file in a zip archive.
 // TODO - figure out what a scanning/iterating interface would look like
@@ -197,26 +198,22 @@ pub fn ScanZip(comptime ReadError: type) type {
 
         try seekable.seekTo(cdInfo.offset + relPos + @sizeOf(CentralDirectoryFileHeader.Struct));
 
-        // FIXME - don't use a fixed length buffer here.
-        // actually, it should be possible to compare an unlimited length
-        // string, using a small buffer and a loop... but if the zip spec
-        // has a low filename length limit (i haven't checked) then that's a
-        // waste of effort
-        var filenameBuf: [500]u8 = undefined;
-        const n = try stream.read(filenameBuf[0..fileNameLength]);
+        if (filename.len == fileNameLength) {
+          const matched = try requireStringInStream(ReadError, stream, filename);
 
-        if (std.mem.eql(u8, filename, filenameBuf[0..n])) {
-          const compressionMethod = CentralDirectoryFileHeader.compressionMethod.read(&fileHeader);
-          const compressedSize = CentralDirectoryFileHeader.compressedSize.read(&fileHeader);
-          const uncompressedSize = CentralDirectoryFileHeader.uncompressedSize.read(&fileHeader);
-          const offset = CentralDirectoryFileHeader.relativeOffsetOfLocalFileHeader.read(&fileHeader);
+          if (matched) {
+            const compressionMethod = CentralDirectoryFileHeader.compressionMethod.read(&fileHeader);
+            const compressedSize = CentralDirectoryFileHeader.compressedSize.read(&fileHeader);
+            const uncompressedSize = CentralDirectoryFileHeader.uncompressedSize.read(&fileHeader);
+            const offset = CentralDirectoryFileHeader.relativeOffsetOfLocalFileHeader.read(&fileHeader);
 
-          return ZipFileInfo{
-            .compressionMethod = compressionMethod,
-            .compressedSize = compressedSize,
-            .uncompressedSize = uncompressedSize,
-            .offset = offset + @sizeOf(LocalFileHeader.Struct) + fileNameLength + extraFieldLength,
-          };
+            return ZipFileInfo{
+              .compressionMethod = compressionMethod,
+              .compressedSize = compressedSize,
+              .uncompressedSize = uncompressedSize,
+              .offset = offset + @sizeOf(LocalFileHeader.Struct) + fileNameLength + extraFieldLength,
+            };
+          }
         }
 
         relPos += @sizeOf(CentralDirectoryFileHeader.Struct);
