@@ -47,29 +47,34 @@ pub fn getPixel(image: *const Image, x: u32, y: u32) ?Pixel {
   if (x >= image.width or y >= image.height) {
     return null;
   } else {
-    const ofs = y * image.width + x;
+    return getPixelUnsafe(image, x, y);
+  }
+}
 
-    switch (image.format) {
-      ImageFormat.RGBA => {
-        const mem = image.pixels[ofs * 4..ofs * 4 + 4];
+// dumb name
+pub fn getPixelUnsafe(image: *const Image, x: u32, y: u32) Pixel {
+  const ofs = y * image.width + x;
 
-        return Pixel{
-          .r = mem[0],
-          .g = mem[1],
-          .b = mem[2],
-          .a = mem[3],
-        };
-      },
-      ImageFormat.RGB => {
-        const mem = image.pixels[ofs * 3..ofs * 3 + 3];
+  switch (image.format) {
+    ImageFormat.RGBA => {
+      const mem = image.pixels[ofs * 4..ofs * 4 + 4];
 
-        return Pixel{
-          .r = mem[0],
-          .g = mem[1],
-          .b = mem[2],
-          .a = 255,
-        };
-      },
-    }
+      return Pixel{
+        .r = mem[0],
+        .g = mem[1],
+        .b = mem[2],
+        .a = mem[3],
+      };
+    },
+    ImageFormat.RGB => {
+      const mem = image.pixels[ofs * 3..ofs * 3 + 3];
+
+      return Pixel{
+        .r = mem[0],
+        .g = mem[1],
+        .b = mem[2],
+        .a = 255,
+      };
+    },
   }
 }

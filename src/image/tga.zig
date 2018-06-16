@@ -76,10 +76,8 @@ pub fn LoadTga(comptime ReadError: type) type {
           const compressed = image_type == 10;
 
           if (pixel_size == 16) {
-            if (attr_bits != 0) {
+            if (attr_bits != 1) {
               return LoadError.Corrupt;
-            } else {
-              return LoadError.Unsupported; // TODO
             }
           } else if (pixel_size == 24) {
             if (attr_bits != 0) {
@@ -153,6 +151,20 @@ pub fn LoadTga(comptime ReadError: type) type {
 
     fn readPixel(pixelSize: u8, source: *std.io.InStream(ReadError)) ReadError!Pixel {
       switch (pixelSize) {
+        16 => {
+          var p: [2]u8 = undefined;
+          std.debug.assert(2 == try source.read(p[0..]));
+          const r = (p[1] & 0x7C) >> 2;
+          const g = ((p[1] & 0x03) << 3) | ((p[0] & 0xE0) >> 5);
+          const b = (p[0] & 0x1F);
+          const a = (p[1] & 0x80) >> 7;
+          return Pixel{
+            .r = (r << 3) | (r >> 2),
+            .g = (g << 3) | (g >> 2),
+            .b = (b << 3) | (b >> 2),
+            .a = a * 0xFF,
+          };
+        },
         24 => {
           var bgr: [3]u8 = undefined;
           std.debug.assert(3 == try source.read(bgr[0..]));
@@ -175,46 +187,4 @@ pub fn LoadTga(comptime ReadError: type) type {
       }
     }
   };
-}
-
-test "LoadTga: load compressed tga" {
-  const ArrayListOutStream = @import("../ArrayListOutStream.zig").ArrayListOutStream;
-  const MemoryInStream = @import("../MemoryInStream.zig").MemoryInStream;
-  const WritePpm = @import("ppm.zig").WritePpm;
-  const allocator = std.debug.global_allocator;
-
-  var source = MemoryInStream.init(@embedFile("../testdata/gem-compressed.tga"));
-
-  const image = try LoadTga(MemoryInStream.ReadError).load(&source.stream, ImageFormat.RGBA, allocator);
-  defer allocator.destroy(image);
-
-  // write image as PPM and compare it the copy in testdata
-  var arrayList = std.ArrayList(u8).init(std.debug.global_allocator);
-  defer arrayList.deinit();
-  var alos = ArrayListOutStream.init(&arrayList);
-
-  try WritePpm(ArrayListOutStream.Error).write(image, &alos.stream);
-
-  std.debug.assert(std.mem.eql(u8, arrayList.toSliceConst(), @embedFile("../testdata/gem.ppm")));
-}
-
-test "LoadTga: load uncompressed tga" {
-  const ArrayListOutStream = @import("../ArrayListOutStream.zig").ArrayListOutStream;
-  const MemoryInStream = @import("../MemoryInStream.zig").MemoryInStream;
-  const WritePpm = @import("ppm.zig").WritePpm;
-  const allocator = std.debug.global_allocator;
-
-  var source = MemoryInStream.init(@embedFile("../testdata/gem-uncompressed.tga"));
-
-  const image = try LoadTga(MemoryInStream.ReadError).load(&source.stream, ImageFormat.RGBA, allocator);
-  defer allocator.destroy(image);
-
-  // write image as PPM and compare it the copy in testdata
-  var arrayList = std.ArrayList(u8).init(std.debug.global_allocator);
-  defer arrayList.deinit();
-  var alos = ArrayListOutStream.init(&arrayList);
-
-  try WritePpm(ArrayListOutStream.Error).write(image, &alos.stream);
-
-  std.debug.assert(std.mem.eql(u8, arrayList.toSliceConst(), @embedFile("../testdata/gem.ppm")));
 }
