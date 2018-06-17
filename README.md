@@ -16,7 +16,7 @@ Writes data to a provided ArrayList(u8). Implements `OutStream`. Basically an in
 Like the FileInStream from std, but also implements `Seekable`.
 
 ### LoadTga
-Load a TGA image from a source `InStream`. So far supports loading 16, 24 and 32 bit images, compressed or uncompressed. Not supported yet: colormapped images.
+Load a TGA image from a source `InStream`. So far supports loading 16, 24 and 32 bit images, compressed or uncompressed. Not supported yet: greyscale and colormapped images.
 
 ### InflateInStream
 Decompresses data from a source `InStream`, using an `Inflater`. Implements `InStream`.

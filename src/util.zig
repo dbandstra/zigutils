@@ -1,6 +1,8 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
+pub const u1 = @IntType(false, 1);
+
 // should this be added to InStream?
 // no... utility methods should probably be kept out of the InStream struct itself.
 // this is where a trait/interface language feature would be nice. you define functions outside

@@ -1,3 +1,4 @@
+const std = @import("std");
 const swapSlices = @import("../util.zig").swapSlices;
 
 pub const ImageFormat = enum {
@@ -12,10 +13,14 @@ pub const ImageFormat = enum {
   }
 };
 
-pub const Image = struct{
+pub const ImageInfo = struct{
   width: u32,
   height: u32,
   format: ImageFormat,
+};
+
+pub const Image = struct{
+  info: ImageInfo,
   pixels: []u8,
 };
 
@@ -26,15 +31,26 @@ pub const Pixel = struct {
   a: u8,
 };
 
+pub fn allocImage(allocator: *std.mem.Allocator, info: *const ImageInfo) !*Image {
+  const pixels = try allocator.alloc(u8, info.width * info.height * ImageFormat.getBytesPerPixel(info.format));
+
+  var image = try allocator.construct(Image{
+    .info = info.*,
+    .pixels = pixels,
+  });
+
+  return image;
+}
+
 pub fn flipImageVertical(image: *Image) void {
-  const bpp = ImageFormat.getBytesPerPixel(image.format);
-  const rb = bpp * image.width;
+  const bpp = ImageFormat.getBytesPerPixel(image.info.format);
+  const rb = bpp * image.info.width;
 
   var y: u32 = 0;
 
-  while (y < image.height / 2) : (y += 1) {
+  while (y < image.info.height / 2) : (y += 1) {
     const ofs0 = rb * y;
-    const ofs1 = rb * (image.height - 1 - y);
+    const ofs1 = rb * (image.info.height - 1 - y);
 
     const row0 = image.pixels[ofs0..ofs0 + rb];
     const row1 = image.pixels[ofs1..ofs1 + rb];
@@ -44,7 +60,7 @@ pub fn flipImageVertical(image: *Image) void {
 }
 
 pub fn getPixel(image: *const Image, x: u32, y: u32) ?Pixel {
-  if (x >= image.width or y >= image.height) {
+  if (x >= image.info.width or y >= image.info.height) {
     return null;
   } else {
     return getPixelUnsafe(image, x, y);
@@ -53,9 +69,9 @@ pub fn getPixel(image: *const Image, x: u32, y: u32) ?Pixel {
 
 // dumb name
 pub fn getPixelUnsafe(image: *const Image, x: u32, y: u32) Pixel {
-  const ofs = y * image.width + x;
+  const ofs = y * image.info.width + x;
 
-  switch (image.format) {
+  switch (image.info.format) {
     ImageFormat.RGBA => {
       const mem = image.pixels[ofs * 4..ofs * 4 + 4];
 

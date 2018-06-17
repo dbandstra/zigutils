@@ -2,82 +2,138 @@ const std = @import("std");
 const ArrayListOutStream = @import("../ArrayListOutStream.zig").ArrayListOutStream;
 const MemoryInStream = @import("../MemoryInStream.zig").MemoryInStream;
 const ImageFormat = @import("image.zig").ImageFormat;
+const ImageInfo = @import("image.zig").ImageInfo;
+const allocImage = @import("image.zig").allocImage;
 const getPixelUnsafe = @import("image.zig").getPixelUnsafe;
 const WriteRaw = @import("raw.zig").WriteRaw;
 const RawFormat = @import("raw.zig").RawFormat;
 const LoadTga = @import("tga.zig").LoadTga;
+const tgaBestStoreFormat = @import("tga.zig").tgaBestStoreFormat;
+
+// TODO:
+// - test top-to-bottom images
+// - rewrite testdata tgas so they have the same comment at the end
+// - write a utility to strip tga comments?
 
 test "LoadTga: load compressed 32-bit tga" {
   try testLoadTga(
     "../testdata/image/gem-compressed-32bit.tga",
-    RawFormat.R8G8B8A8,
     "../testdata/image/gem-raw-r8g8b8a8.data",
-    0,
+    TestLoadTgaParams{
+      .expectedImageType = 10,
+      .expectedPixelSize = 32,
+      .expectedAttrBits = 8,
+      .rawFormat = RawFormat.R8G8B8A8,
+      .tolerance = 0,
+    },
   );
 }
 
 test "LoadTga: load uncompressed 32-bit tga" {
   try testLoadTga(
     "../testdata/image/gem-uncompressed-32bit.tga",
-    RawFormat.R8G8B8A8,
     "../testdata/image/gem-raw-r8g8b8a8.data",
-    0,
+    TestLoadTgaParams{
+      .expectedImageType = 2,
+      .expectedPixelSize = 32,
+      .expectedAttrBits = 8,
+      .rawFormat = RawFormat.R8G8B8A8,
+      .tolerance = 0,
+    },
   );
 }
 
 test "LoadTga: load compressed 24-bit tga" {
   try testLoadTga(
     "../testdata/image/gem-compressed-24bit.tga",
-    RawFormat.R8G8B8,
     "../testdata/image/gem-raw-r8g8b8.data",
-    0,
+    TestLoadTgaParams{
+      .expectedImageType = 10,
+      .expectedPixelSize = 24,
+      .expectedAttrBits = 0,
+      .rawFormat = RawFormat.R8G8B8,
+      .tolerance = 0,
+    },
   );
 }
 
 test "LoadTga: load uncompressed 24-bit tga" {
   try testLoadTga(
     "../testdata/image/gem-uncompressed-24bit.tga",
-    RawFormat.R8G8B8,
     "../testdata/image/gem-raw-r8g8b8.data",
-    0,
+    TestLoadTgaParams{
+      .expectedImageType = 2,
+      .expectedPixelSize = 24,
+      .expectedAttrBits = 0,
+      .rawFormat = RawFormat.R8G8B8,
+      .tolerance = 0,
+    },
   );
 }
 
 test "LoadTga: load compressed 16-bit tga" {
   try testLoadTga(
     "../testdata/image/gem-compressed-16bit.tga",
-    RawFormat.R8G8B8A8,
     "../testdata/image/gem-raw-r8g8b8a8.data",
-    8,
+    TestLoadTgaParams{
+      .expectedImageType = 10,
+      .expectedPixelSize = 16,
+      .expectedAttrBits = 1,
+      .rawFormat = RawFormat.R8G8B8A8,
+      .tolerance = 8,
+    },
   );
 }
 
 test "LoadTga: load uncompressed 16-bit tga" {
   try testLoadTga(
     "../testdata/image/gem-uncompressed-16bit.tga",
-    RawFormat.R8G8B8A8,
     "../testdata/image/gem-raw-r8g8b8a8.data",
-    8,
+    TestLoadTgaParams{
+      .expectedImageType = 2,
+      .expectedPixelSize = 16,
+      .expectedAttrBits = 1,
+      .rawFormat = RawFormat.R8G8B8A8,
+      .tolerance = 8,
+    },
   );
 }
 
+const TestLoadTgaParams = struct {
+  expectedImageType: u8,
+  expectedPixelSize: u8,
+  expectedAttrBits: u4,
+  rawFormat: RawFormat,
+  tolerance: i32,
+};
+
 fn testLoadTga(
   comptime tgaFilename: []const u8,
-  rawFormat: RawFormat,
   comptime rawFilename: []const u8,
-  tolerance: i32,
+  params: *const TestLoadTgaParams,
 ) !void {
   var source = MemoryInStream.init(@embedFile(tgaFilename));
 
-  const image = try LoadTga(MemoryInStream.ReadError).load(&source.stream, ImageFormat.RGBA, std.debug.global_allocator);
+  // load tga
+  const tgaInfo = try LoadTga(MemoryInStream.ReadError).preload(&source.stream, &source.seekable);
+  std.debug.assert(tgaInfo.image_type == params.expectedImageType);
+  std.debug.assert(tgaInfo.pixel_size == params.expectedPixelSize);
+  std.debug.assert(tgaInfo.attr_bits == params.expectedAttrBits);
+  const image = try allocImage(std.debug.global_allocator, ImageInfo{
+    .width = tgaInfo.width,
+    .height = tgaInfo.height,
+    .format = tgaBestStoreFormat(tgaInfo),
+  });
+  defer std.debug.global_allocator.free(image.pixels);
   defer std.debug.global_allocator.destroy(image);
+  try LoadTga(MemoryInStream.ReadError).load(&source.stream, &source.seekable, tgaInfo, image);
 
   // write image in raw format and compare it the copy in testdata
   var arrayList = std.ArrayList(u8).init(std.debug.global_allocator);
   defer arrayList.deinit();
   var alos = ArrayListOutStream.init(&arrayList);
 
-  try WriteRaw(ArrayListOutStream.Error).write(image, &alos.stream, rawFormat);
+  try WriteRaw(ArrayListOutStream.Error).write(image, &alos.stream, params.rawFormat);
 
   // compare raw data. as for the tolerance variable: when we load a 16-bit
   // image, we upsample it to 24-bit. there are a few ways you can do the
@@ -95,16 +151,10 @@ fn testLoadTga(
     while (i < a.len) : (i += 1) {
       const d = i32(a[i]) - i32(b[i]);
 
-      if (d < -tolerance or d > tolerance) {
+      if (d < -params.tolerance or d > params.tolerance) {
         break :blk false;
       }
     }
     break :blk true;
   });
 }
-
-// TODO:
-// do 15 bit exist? or does 16 bit always have alpha bit?
-// test top to bottom?
-// 'readheader' function, assert some header bits in these tests?
-// rewrite all tgas so they have the same comment at the end
