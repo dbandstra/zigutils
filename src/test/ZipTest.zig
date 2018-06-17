@@ -5,6 +5,7 @@ const Seekable = @import("../traits/Seekable.zig").Seekable;
 const SeekableFileInStream = @import("../FileInStream.zig").SeekableFileInStream;
 const ScanZip = @import("../ScanZip.zig").ScanZip;
 const COMPRESSION_DEFLATE = @import("../ScanZip.zig").COMPRESSION_DEFLATE;
+const ZipWalkState = @import("../ScanZip.zig").ZipWalkState;
 const Inflater = @import("../Inflater.zig").Inflater;
 const InflateInStream = @import("../InflateInStream.zig").InflateInStream;
 
@@ -42,4 +43,29 @@ test "ZipTest: locate and decompress a file from a zip archive" {
   } else {
     unreachable;
   }
+}
+
+test "ZipTest: count files inside a zip archive" {
+  var file = try File.openRead(std.debug.global_allocator, "src/testdata/zlib1211.zip");
+  defer file.close();
+  var sfis = SeekableFileInStream.init(&file);
+
+  const sz = ScanZip(SeekableFileInStream.ReadError);
+
+  const isZipFile = try sz.is_zip_file(&sfis.stream, &sfis.seekable);
+  std.debug.assert(isZipFile);
+  const cdInfo = try sz.find_central_directory(&sfis.stream, &sfis.seekable);
+  var walkState: ZipWalkState = undefined;
+  var filenameBuf: [260]u8 = undefined;
+  sz.walkInit(cdInfo, &walkState, filenameBuf[0..]);
+
+  var count: usize = 0;
+  while (try sz.walk(&walkState, &sfis.stream, &sfis.seekable)) |f| {
+    count += 1;
+    if (count > 1000) {
+      unreachable;
+    }
+  }
+
+  std.debug.assert(count == 293);
 }

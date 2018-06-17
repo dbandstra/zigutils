@@ -11,10 +11,10 @@ const readOneNoEof = @import("util.zig").readOneNoEof;
 const fieldMeta = @import("util.zig").fieldMeta;
 const requireStringInStream = @import("util.zig").requireStringInStream;
 
-// currently able to locate a single file in a zip archive.
-// TODO - figure out what a scanning/iterating interface would look like
-
 // TODO - write tests!
+
+// TODO - function to read entire central directory into a buffer, then
+// functions to iterate over that
 
 pub const COMPRESSION_NONE: u16 = 0;
 pub const COMPRESSION_DEFLATE: u16 = 8;
@@ -170,56 +170,88 @@ pub fn ScanZip(comptime ReadError: type) type {
       return Error.NotZipFile;
     }
 
+    pub fn walkInit(
+      cdInfo: *const CentralDirectoryInfo,
+      walkState: *ZipWalkState,
+      filenameBuf: []u8,
+    ) void {
+      walkState.cdInfo = cdInfo.*;
+      walkState.relPos = 0;
+      walkState.file = null;
+      walkState.filenameBuf = filenameBuf;
+    }
+
+    pub fn walk(
+      walkState: *ZipWalkState,
+      stream: *InStream(ReadError),
+      seekable: *Seekable,
+    ) !?*ZipWalkFile {
+      if (walkState.relPos >= walkState.cdInfo.size) {
+        walkState.file = null;
+        return null;
+      }
+
+      var fileHeader: CentralDirectoryFileHeader.Struct = undefined;
+
+      try seekable.seekTo(walkState.cdInfo.offset + walkState.relPos);
+      try readOneNoEof(ReadError, stream, CentralDirectoryFileHeader.Struct, &fileHeader);
+
+      const signature = CentralDirectoryFileHeader.signature.read(&fileHeader);
+
+      if (signature != 0x02014b50) {
+        return Error.Corrupt;
+      }
+
+      // TODO - make sure disk number is 0 or whatever
+      const fileNameLength = CentralDirectoryFileHeader.fileNameLength.read(&fileHeader);
+      const extraFieldLength = CentralDirectoryFileHeader.extraFieldLength.read(&fileHeader);
+      const fileCommentLength = CentralDirectoryFileHeader.fileCommentLength.read(&fileHeader);
+
+      try seekable.seekTo(walkState.cdInfo.offset + walkState.relPos + @sizeOf(CentralDirectoryFileHeader.Struct));
+
+      // FIXME - error checking or something?
+      const n = try stream.read(walkState.filenameBuf[0..fileNameLength]);
+
+      const compressionMethod = CentralDirectoryFileHeader.compressionMethod.read(&fileHeader);
+      const compressedSize = CentralDirectoryFileHeader.compressedSize.read(&fileHeader);
+      const uncompressedSize = CentralDirectoryFileHeader.uncompressedSize.read(&fileHeader);
+      const offset = CentralDirectoryFileHeader.relativeOffsetOfLocalFileHeader.read(&fileHeader);
+
+      walkState.file = ZipWalkFile{
+        .filename = walkState.filenameBuf[0..n],
+        .info = ZipFileInfo{
+          .compressionMethod = compressionMethod,
+          .compressedSize = compressedSize,
+          .uncompressedSize = uncompressedSize,
+          .offset = offset + @sizeOf(LocalFileHeader.Struct) + fileNameLength + extraFieldLength,
+        },
+      };
+
+      walkState.relPos += @sizeOf(CentralDirectoryFileHeader.Struct);
+      walkState.relPos += fileNameLength;
+      walkState.relPos += extraFieldLength;
+      walkState.relPos += fileCommentLength;
+      return &walkState.file.?;
+    }
+
     pub fn find_file_in_directory(
       cdInfo: *const CentralDirectoryInfo,
       stream: *InStream(ReadError),
       seekable: *Seekable,
       filename: []const u8,
     ) !?ZipFileInfo {
-      var relPos: usize = 0;
+      var walkState: ZipWalkState = undefined;
 
-      while (relPos < cdInfo.size) {
-        var fileHeader: CentralDirectoryFileHeader.Struct = undefined;
+      // FIXME - filenames can be longer than 260 bytes. (unfortunately there's
+      // no easy fix for this other than using a bigger buffer)
+      var filenameBuf: [260]u8 = undefined;
 
-        try seekable.seekTo(cdInfo.offset + relPos);
-        try readOneNoEof(ReadError, stream, CentralDirectoryFileHeader.Struct, &fileHeader);
+      walkInit(cdInfo, &walkState, filenameBuf[0..]);
 
-        const signature = CentralDirectoryFileHeader.signature.read(&fileHeader);
-
-        if (signature != 0x02014b50) {
-          // FIXME - if this error is thrown, the stack trace is huge and seemingly garbage?
-          return Error.Corrupt;
+      while (try walk(&walkState, stream, seekable)) |file| {
+        if (std.mem.eql(u8, filename, file.filename)) {
+          return file.info;
         }
-
-        // TODO - make sure disk number is 0 or whatever
-        const fileNameLength = CentralDirectoryFileHeader.fileNameLength.read(&fileHeader);
-        const extraFieldLength = CentralDirectoryFileHeader.extraFieldLength.read(&fileHeader);
-        const fileCommentLength = CentralDirectoryFileHeader.fileCommentLength.read(&fileHeader);
-
-        try seekable.seekTo(cdInfo.offset + relPos + @sizeOf(CentralDirectoryFileHeader.Struct));
-
-        if (filename.len == fileNameLength) {
-          const matched = try requireStringInStream(ReadError, stream, filename);
-
-          if (matched) {
-            const compressionMethod = CentralDirectoryFileHeader.compressionMethod.read(&fileHeader);
-            const compressedSize = CentralDirectoryFileHeader.compressedSize.read(&fileHeader);
-            const uncompressedSize = CentralDirectoryFileHeader.uncompressedSize.read(&fileHeader);
-            const offset = CentralDirectoryFileHeader.relativeOffsetOfLocalFileHeader.read(&fileHeader);
-
-            return ZipFileInfo{
-              .compressionMethod = compressionMethod,
-              .compressedSize = compressedSize,
-              .uncompressedSize = uncompressedSize,
-              .offset = offset + @sizeOf(LocalFileHeader.Struct) + fileNameLength + extraFieldLength,
-            };
-          }
-        }
-
-        relPos += @sizeOf(CentralDirectoryFileHeader.Struct);
-        relPos += fileNameLength;
-        relPos += extraFieldLength;
-        relPos += fileCommentLength;
       }
 
       return null;
@@ -242,3 +274,15 @@ pub fn ScanZip(comptime ReadError: type) type {
     }
   };
 }
+
+pub const ZipWalkState = struct{
+  cdInfo: CentralDirectoryInfo,
+  relPos: usize,
+  file: ?ZipWalkFile,
+  filenameBuf: []u8,
+};
+
+pub const ZipWalkFile = struct{
+  filename: []const u8,
+  info: ZipFileInfo,
+};
