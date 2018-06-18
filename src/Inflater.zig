@@ -81,7 +81,7 @@ pub const Inflater = struct {
 
     // `next_in` is const, but zig didn't pick up on that
     self.zlib_stream.next_in = @intToPtr([*]u8, @ptrToInt(source.ptr));
-    self.zlib_stream.avail_in = c_uint(source.len);
+    self.zlib_stream.avail_in = @intCast(c_uint, source.len);
     self.zlib_stream.total_in = 0;
   }
 
@@ -109,7 +109,7 @@ pub const Inflater = struct {
     self.resetting = false;
 
     self.zlib_stream.next_out = buffer.ptr;
-    self.zlib_stream.avail_out = c_uint(buffer.len);
+    self.zlib_stream.avail_out = @intCast(c_uint, buffer.len);
     self.zlib_stream.total_out = 0;
   }
 

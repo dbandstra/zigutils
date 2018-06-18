@@ -69,7 +69,7 @@ pub const MemoryInStream = struct {
     const self = @fieldParentPtr(MemoryInStream, "seekable", seekable);
 
     if (amount > 0) {
-      const uamount = usize(amount);
+      const uamount = @intCast(usize, amount);
 
       if (self.index + uamount <= self.source_buffer.len) {
         self.index += uamount;
@@ -77,7 +77,7 @@ pub const MemoryInStream = struct {
         return Seekable.Error.SeekError;
       }
     } else if (amount < 0) {
-      const uamount = usize(-amount);
+      const uamount = @intCast(usize, -amount);
 
       if (self.index >= uamount) {
         self.index -= uamount;
