@@ -49,7 +49,7 @@ pub fn swapSlices(comptime T: type, a: []T, b: []T) void {
 
 // copied from macho.zig
 pub fn readNoEof(comptime ReadError: type, in: *std.io.InStream(ReadError), comptime T: type, result: []T) !void {
-  return in.readNoEof(([]u8)(result));
+  return in.readNoEof(@sliceToBytes(result));
 }
 
 // copied from macho.zig
@@ -59,7 +59,7 @@ pub fn readOneNoEof(comptime ReadError: type, in: *std.io.InStream(ReadError), c
 
 pub fn clearStruct(comptime T: type, value: *T) void {
   const sliceOfOne: []T = (*[1]T)(value)[0..];
-  const memory: []u8 = ([]u8)(sliceOfOne);
+  const memory: []u8 = @sliceToBytes(sliceOfOne);
   std.mem.set(u8, memory, 0);
 }
 

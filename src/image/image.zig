@@ -34,7 +34,7 @@ pub const Pixel = struct {
 pub fn allocImage(allocator: *std.mem.Allocator, info: *const ImageInfo) !*Image {
   const pixels = try allocator.alloc(u8, info.width * info.height * ImageFormat.getBytesPerPixel(info.format));
 
-  var image = try allocator.construct(Image{
+  var image = try allocator.create(Image{
     .info = info.*,
     .pixels = pixels,
   });
