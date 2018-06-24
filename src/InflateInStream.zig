@@ -80,6 +80,11 @@ pub fn InflateInStream(comptime SourceError: type) type {
 }
 
 test "InflateInStream: works on valid input" {
+  const ssaf = @import("test/util/test_allocator.zig").ssaf;
+  const allocator = &ssaf.allocator;
+  const mark = ssaf.get_mark();
+  defer ssaf.free_to_mark(mark);
+
   const MemoryInStream = @import("MemoryInStream.zig").MemoryInStream;
 
   const compressedData = @embedFile("testdata/adler32.c-compressed");
@@ -87,7 +92,7 @@ test "InflateInStream: works on valid input" {
 
   var source = MemoryInStream.init(compressedData);
 
-  var inflater = Inflater.init(std.debug.global_allocator, -15);
+  var inflater = Inflater.init(allocator, -15);
   defer inflater.deinit();
   var inflaterBuf: [256]u8 = undefined;
   var inflateStream = InflateInStream(MemoryInStream.ReadError).init(&inflater, &source.stream, inflaterBuf[0..]);
@@ -109,13 +114,18 @@ test "InflateInStream: works on valid input" {
 }
 
 test "InflateInStream: fails with InvalidStream on bad input" {
+  const ssaf = @import("test/util/test_allocator.zig").ssaf;
+  const allocator = &ssaf.allocator;
+  const mark = ssaf.get_mark();
+  defer ssaf.free_to_mark(mark);
+
   const MemoryInStream = @import("MemoryInStream.zig").MemoryInStream;
 
   const uncompressedData = @embedFile("testdata/adler32.c");
 
   var source = MemoryInStream.init(uncompressedData);
 
-  var inflater = Inflater.init(std.debug.global_allocator, -15);
+  var inflater = Inflater.init(allocator, -15);
   defer inflater.deinit();
   var inflateBuf: [256]u8 = undefined;
   var inflateStream = InflateInStream(MemoryInStream.ReadError).init(&inflater, &source.stream, inflateBuf[0..]);

@@ -1,6 +1,7 @@
 const std = @import("std");
 const File = std.os.File;
 const InStream = std.io.InStream;
+const ssaf = @import("util/test_allocator.zig").ssaf;
 const Seekable = @import("../traits/Seekable.zig").Seekable;
 const SeekableFileInStream = @import("../FileInStream.zig").SeekableFileInStream;
 const ScanZip = @import("../ScanZip.zig").ScanZip;
@@ -10,9 +11,13 @@ const Inflater = @import("../Inflater.zig").Inflater;
 const InflateInStream = @import("../InflateInStream.zig").InflateInStream;
 
 test "ZipTest: locate and decompress a file from a zip archive" {
+  const allocator = &ssaf.allocator;
+  const mark = ssaf.get_mark();
+  defer ssaf.free_to_mark(mark);
+
   const uncompressedData = @embedFile("../testdata/adler32.c");
 
-  var file = try File.openRead(std.debug.global_allocator, "src/testdata/zlib1211.zip");
+  var file = try File.openRead(allocator, "src/testdata/zlib1211.zip");
   defer file.close();
   var sfis = SeekableFileInStream.init(&file);
 
@@ -24,7 +29,7 @@ test "ZipTest: locate and decompress a file from a zip archive" {
     std.debug.assert(fileInfo.compressionMethod == COMPRESSION_DEFLATE);
     std.debug.assert(fileInfo.uncompressedSize == uncompressedData.len);
 
-    var inflater = Inflater.init(std.debug.global_allocator, -15);
+    var inflater = Inflater.init(allocator, -15);
     defer inflater.deinit();
     var inflateBuf: [256]u8 = undefined;
     var iis = InflateInStream(SeekableFileInStream.ReadError).init(&inflater, &sfis.stream, inflateBuf[0..]);
@@ -46,7 +51,11 @@ test "ZipTest: locate and decompress a file from a zip archive" {
 }
 
 test "ZipTest: count files inside a zip archive" {
-  var file = try File.openRead(std.debug.global_allocator, "src/testdata/zlib1211.zip");
+  const allocator = &ssaf.allocator;
+  const mark = ssaf.get_mark();
+  defer ssaf.free_to_mark(mark);
+
+  var file = try File.openRead(allocator, "src/testdata/zlib1211.zip");
   defer file.close();
   var sfis = SeekableFileInStream.init(&file);
 

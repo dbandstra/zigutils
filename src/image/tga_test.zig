@@ -1,4 +1,5 @@
 const std = @import("std");
+const ssaf = @import("../test/util/test_allocator.zig").ssaf;
 const ArrayListOutStream = @import("../ArrayListOutStream.zig").ArrayListOutStream;
 const MemoryInStream = @import("../MemoryInStream.zig").MemoryInStream;
 const ImageFormat = @import("image.zig").ImageFormat;
@@ -112,6 +113,10 @@ fn testLoadTga(
   comptime rawFilename: []const u8,
   params: *const TestLoadTgaParams,
 ) !void {
+  const allocator = &ssaf.allocator;
+  const mark = ssaf.get_mark();
+  defer ssaf.free_to_mark(mark);
+
   var source = MemoryInStream.init(@embedFile(tgaFilename));
 
   // load tga
@@ -119,17 +124,17 @@ fn testLoadTga(
   std.debug.assert(tgaInfo.image_type == params.expectedImageType);
   std.debug.assert(tgaInfo.pixel_size == params.expectedPixelSize);
   std.debug.assert(tgaInfo.attr_bits == params.expectedAttrBits);
-  const image = try allocImage(std.debug.global_allocator, ImageInfo{
+  const image = try allocImage(allocator, ImageInfo{
     .width = tgaInfo.width,
     .height = tgaInfo.height,
     .format = tgaBestStoreFormat(tgaInfo),
   });
-  defer std.debug.global_allocator.free(image.pixels);
-  defer std.debug.global_allocator.destroy(image);
+  defer allocator.free(image.pixels);
+  defer allocator.destroy(image);
   try LoadTga(MemoryInStream.ReadError).load(&source.stream, &source.seekable, tgaInfo, image);
 
   // write image in raw format and compare it the copy in testdata
-  var arrayList = std.ArrayList(u8).init(std.debug.global_allocator);
+  var arrayList = std.ArrayList(u8).init(allocator);
   defer arrayList.deinit();
   var alos = ArrayListOutStream.init(&arrayList);
 

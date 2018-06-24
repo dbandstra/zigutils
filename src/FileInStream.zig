@@ -70,8 +70,13 @@ pub const SeekableFileInStream = struct {
   }
 };
 
+  const ssaf = @import("test/util/test_allocator.zig").ssaf;
 test "FileInStream" {
-  var file = try File.openRead(std.debug.global_allocator, "README.md");
+  const allocator = &ssaf.allocator;
+  const mark = ssaf.get_mark();
+  defer ssaf.free_to_mark(mark);
+
+  var file = try File.openRead(allocator, "README.md");
   var sfis = SeekableFileInStream.init(&file);
 
   try sfis.seekable.seekForward(20);

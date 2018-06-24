@@ -28,7 +28,12 @@ pub const ArrayListOutStream = struct {
 };
 
 test "ArrayListOutStream" {
-  var array_list = ArrayList(u8).init(std.debug.global_allocator);
+  const ssaf = @import("test/util/test_allocator.zig").ssaf;
+  const allocator = &ssaf.allocator;
+  const mark = ssaf.get_mark();
+  defer ssaf.free_to_mark(mark);
+
+  var array_list = ArrayList(u8).init(allocator);
   defer array_list.deinit();
 
   var alos = ArrayListOutStream.init(&array_list);
