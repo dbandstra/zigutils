@@ -1,8 +1,5 @@
 const std = @import("std");
-const Image = @import("image.zig").Image;
-const ImageFormat = @import("image.zig").ImageFormat;
-const getPixelUnsafe = @import("image.zig").getPixelUnsafe;
-const Pixel = @import("image.zig").Pixel;
+const image = @import("image.zig");
 
 pub const RawFormat = enum{
   R8G8B8,
@@ -11,17 +8,17 @@ pub const RawFormat = enum{
 
 pub fn WriteRaw(comptime WriteError: type) type {
   return struct {
-    pub fn write(image: *const Image, stream: *std.io.OutStream(WriteError), format: RawFormat) !void {
+    pub fn write(img: *const image.Image, stream: *std.io.OutStream(WriteError), format: RawFormat) !void {
       var y: u32 = 0;
-      while (y < image.info.height) : (y += 1) {
+      while (y < img.info.height) : (y += 1) {
         var x: u32 = 0;
-        while (x < image.info.width) : (x += 1) {
-          try writePixel(getPixelUnsafe(image, x, y), stream, format);
+        while (x < img.info.width) : (x += 1) {
+          try writePixel(image.getPixelUnsafe(img, x, y), stream, format);
         }
       }
     }
 
-    fn writePixel(pixel: *const Pixel, stream: *std.io.OutStream(WriteError), format: RawFormat) !void {
+    fn writePixel(pixel: *const image.Pixel, stream: *std.io.OutStream(WriteError), format: RawFormat) !void {
       switch (format) {
         RawFormat.R8G8B8 => {
           try stream.write([]u8{pixel.r, pixel.g, pixel.b});

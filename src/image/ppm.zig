@@ -1,7 +1,4 @@
 const std = @import("std");
-const Image = @import("image.zig").Image;
-const ImageFormat = @import("image.zig").ImageFormat;
-const getPixel = @import("image.zig").getPixel;
 
 pub fn WritePpm(comptime WriteError: type) type {
   return struct {

@@ -2,10 +2,7 @@ const std = @import("std");
 const ssaf = @import("../test/util/test_allocator.zig").ssaf;
 const ArrayListOutStream = @import("../ArrayListOutStream.zig").ArrayListOutStream;
 const MemoryInStream = @import("../MemoryInStream.zig").MemoryInStream;
-const ImageFormat = @import("image.zig").ImageFormat;
-const ImageInfo = @import("image.zig").ImageInfo;
-const allocImage = @import("image.zig").allocImage;
-const getPixelUnsafe = @import("image.zig").getPixelUnsafe;
+const image = @import("image.zig");
 const WriteRaw = @import("raw.zig").WriteRaw;
 const RawFormat = @import("raw.zig").RawFormat;
 const LoadTga = @import("tga.zig").LoadTga;
@@ -124,21 +121,20 @@ fn testLoadTga(
   std.debug.assert(tgaInfo.image_type == params.expectedImageType);
   std.debug.assert(tgaInfo.pixel_size == params.expectedPixelSize);
   std.debug.assert(tgaInfo.attr_bits == params.expectedAttrBits);
-  const image = try allocImage(allocator, ImageInfo{
+  const img = try image.createImage(allocator, image.Info{
     .width = tgaInfo.width,
     .height = tgaInfo.height,
     .format = tgaBestStoreFormat(tgaInfo),
   });
-  defer allocator.free(image.pixels);
-  defer allocator.destroy(image);
-  try LoadTga(MemoryInStream.ReadError).load(&source.stream, &source.seekable, tgaInfo, image);
+  defer image.destroyImage(allocator, img);
+  try LoadTga(MemoryInStream.ReadError).load(&source.stream, &source.seekable, tgaInfo, img);
 
   // write image in raw format and compare it the copy in testdata
   var arrayList = std.ArrayList(u8).init(allocator);
   defer arrayList.deinit();
   var alos = ArrayListOutStream.init(&arrayList);
 
-  try WriteRaw(ArrayListOutStream.Error).write(image, &alos.stream, params.rawFormat);
+  try WriteRaw(ArrayListOutStream.Error).write(img, &alos.stream, params.rawFormat);
 
   // compare raw data. as for the tolerance variable: when we load a 16-bit
   // image, we upsample it to 24-bit. there are a few ways you can do the

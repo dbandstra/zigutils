@@ -70,7 +70,7 @@ pub const SingleStackAllocatorFlat = struct {
 
 test "SingleStackAllocatorFlat" {
   var buf: [100 * 1024]u8 = undefined;
-  var hunk = SingleStackAllocatorFlat.init(buf[0..]);
+  var ssaf = SingleStackAllocatorFlat.init(buf[0..]);
 
-  _ = hunk.allocator.alloc(u8, 7);
+  _ = ssaf.allocator.alloc(u8, 7);
 }

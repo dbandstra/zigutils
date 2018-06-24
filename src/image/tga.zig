@@ -2,10 +2,7 @@ const builtin = @import("builtin");
 const std = @import("std");
 const Seekable = @import("../traits/Seekable.zig").Seekable;
 const readOneNoEof = @import("../util.zig").readOneNoEof;
-const Image = @import("image.zig").Image;
-const ImageFormat = @import("image.zig").ImageFormat;
-const Pixel = @import("image.zig").Pixel;
-const flipImageVertical = @import("image.zig").flipImageVertical;
+const image = @import("image.zig");
 
 // resources:
 // https://en.wikipedia.org/wiki/Truevision_TGA
@@ -35,11 +32,11 @@ pub const TgaInfo = struct{
   interleaving: u2,
 };
 
-pub fn tgaBestStoreFormat(tgaInfo: *const TgaInfo) ImageFormat {
+pub fn tgaBestStoreFormat(tgaInfo: *const TgaInfo) image.Format {
   if (tgaInfo.attr_bits > 0) {
-    return ImageFormat.RGBA;
+    return image.Format.RGBA;
   } else {
-    return ImageFormat.RGB;
+    return image.Format.RGB;
   }
 }
 
@@ -138,9 +135,9 @@ pub fn LoadTga(comptime ReadError: type) type {
       stream: *std.io.InStream(ReadError),
       seekable: *Seekable,
       tgaInfo: *const TgaInfo,
-      image: *Image,
+      img: *image.Image,
     ) LoadError!void {
-      std.debug.assert(tgaInfo.width == image.info.width and tgaInfo.height == image.info.height);
+      std.debug.assert(tgaInfo.width == img.info.width and tgaInfo.height == img.info.height);
 
       try seekable.seekTo(TGA_HEADER_SIZE + usize(tgaInfo.id_length));
 
@@ -149,8 +146,8 @@ pub fn LoadTga(comptime ReadError: type) type {
         2, 10 => {
           const compressed = tgaInfo.image_type == 10;
 
-          const num_pixels = image.info.width * image.info.height;
-          var dest = std.io.SliceOutStream.init(image.pixels);
+          const num_pixels = img.info.width * img.info.height;
+          var dest = std.io.SliceOutStream.init(img.pixels);
 
           var i: u32 = 0;
 
@@ -177,13 +174,13 @@ pub fn LoadTga(comptime ReadError: type) type {
             if (is_raw_packet) {
               while (j < run_length) : (j += 1) {
                 const pixel = try readPixel(tgaInfo.pixel_size, stream);
-                writePixel(image.info.format, &dest, pixel);
+                writePixel(img.info.format, &dest, pixel);
               }
             } else {
               const pixel = try readPixel(tgaInfo.pixel_size, stream);
 
               while (j < run_length) : (j += 1) {
-                writePixel(image.info.format, &dest, pixel);
+                writePixel(img.info.format, &dest, pixel);
               }
             }
 
@@ -193,11 +190,11 @@ pub fn LoadTga(comptime ReadError: type) type {
       }
 
       if (tgaInfo.origin == 0) {
-        flipImageVertical(image);
+        image.flipVertical(img);
       }
     }
 
-    fn readPixel(pixelSize: u8, stream: *std.io.InStream(ReadError)) ReadError!Pixel {
+    fn readPixel(pixelSize: u8, stream: *std.io.InStream(ReadError)) ReadError!image.Pixel {
       switch (pixelSize) {
         16 => {
           var p: [2]u8 = undefined;
@@ -206,7 +203,7 @@ pub fn LoadTga(comptime ReadError: type) type {
           const g = ((p[1] & 0x03) << 3) | ((p[0] & 0xE0) >> 5);
           const b = (p[0] & 0x1F);
           const a = (p[1] & 0x80) >> 7;
-          return Pixel{
+          return image.Pixel{
             .r = (r << 3) | (r >> 2),
             .g = (g << 3) | (g >> 2),
             .b = (b << 3) | (b >> 2),
@@ -216,22 +213,23 @@ pub fn LoadTga(comptime ReadError: type) type {
         24 => {
           var bgr: [3]u8 = undefined;
           std.debug.assert(3 == try stream.read(bgr[0..]));
-          return Pixel{ .r = bgr[2], .g = bgr[1], .b = bgr[0], .a = 255 };
+          return image.Pixel{ .r = bgr[2], .g = bgr[1], .b = bgr[0], .a = 255 };
         },
         32 => {
           var bgra: [4]u8 = undefined;
           std.debug.assert(4 == try stream.read(bgra[0..]));
-          return Pixel{ .r = bgra[2], .g = bgra[1], .b = bgra[0], .a = bgra[3] };
+          return image.Pixel{ .r = bgra[2], .g = bgra[1], .b = bgra[0], .a = bgra[3] };
         },
         else => unreachable,
       }
     }
 
-    fn writePixel(storeFormat: ImageFormat, dest: *std.io.SliceOutStream, pixel: *const Pixel) void {
+    fn writePixel(storeFormat: image.Format, dest: *std.io.SliceOutStream, pixel: *const image.Pixel) void {
       switch (storeFormat) {
         // `catch unreachable` because we allocated the whole buffer at the right size
-        ImageFormat.RGBA => dest.stream.write([]u8 { pixel.r, pixel.g, pixel.b, pixel.a }) catch unreachable,
-        ImageFormat.RGB => dest.stream.write([]u8 { pixel.r, pixel.g, pixel.b }) catch unreachable,
+        image.Format.RGBA => dest.stream.write([]u8 { pixel.r, pixel.g, pixel.b, pixel.a }) catch unreachable,
+        image.Format.RGB => dest.stream.write([]u8 { pixel.r, pixel.g, pixel.b }) catch unreachable,
+        else => unreachable, // FIXME...
       }
     }
   };
