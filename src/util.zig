@@ -1,27 +1,6 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
-pub const u1 = @IntType(false, 1);
-
-// should this be added to InStream?
-// no... utility methods should probably be kept out of the InStream struct itself.
-// this is where a trait/interface language feature would be nice. you define functions outside
-// the struct itself, but they are put into the struct's namespace
-// FIXME - i can't use `!void` return type, it complains that i don't return any error, but i do. compiler bug?
-pub fn skip(comptime Error: type, instream: *std.io.InStream(Error), n: usize) Error!void {
-  var buffer: [200]u8 = undefined;
-  var i: usize = 0;
-
-  while (i < n) {
-    var count = n - i;
-    if (count > buffer.len) {
-      count = buffer.len;
-    }
-    _ = try instream.read(buffer[0..count]);
-    i += count;
-  }
-}
-
 // read from the instream, expecting to find the given string.
 // return true if it was found.
 // FIXME - if i use `Error!bool` return type, i get a weird compile error

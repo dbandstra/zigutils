@@ -5,7 +5,6 @@ comptime {
   _ = @import("src/InflateInStream.zig");
   _ = @import("src/LineReader.zig");
   _ = @import("src/MemoryInStream.zig");
-  _ = @import("src/MemoryOutStream.zig");
   // _ = @import("src/SingleStackAllocator.zig");
   _ = @import("src/SingleStackAllocatorFlat.zig");
   _ = @import("src/image/tga_test.zig");

@@ -54,26 +54,25 @@ test "LineReader: reads lines and fails upon EOF" {
   // note that by importing these files, their tests will be run too, kind of
   // as prerequisites - nice!
   const MemoryInStream = @import("MemoryInStream.zig").MemoryInStream;
-  const MemoryOutStream = @import("MemoryOutStream.zig").MemoryOutStream;
 
   var in_stream = MemoryInStream.init("First line\nSecond line\n\nUnterminated line");
 
   var out_buf: [100]u8 = undefined;
-  var mos = MemoryOutStream.init(out_buf[0..]);
+  var mos = std.io.SliceOutStream.init(out_buf[0..]);
 
-  const line_reader = LineReader(MemoryOutStream.WriteError);
-
-  mos.reset();
-  try line_reader.read_line_from_stream(MemoryInStream.ReadError, &in_stream.stream, &mos.stream);
-  std.debug.assert(std.mem.eql(u8, mos.getSlice(), "First line"));
+  const line_reader = LineReader(std.io.SliceOutStream.Error);
 
   mos.reset();
   try line_reader.read_line_from_stream(MemoryInStream.ReadError, &in_stream.stream, &mos.stream);
-  std.debug.assert(std.mem.eql(u8, mos.getSlice(), "Second line"));
+  std.debug.assert(std.mem.eql(u8, mos.getWritten(), "First line"));
 
   mos.reset();
   try line_reader.read_line_from_stream(MemoryInStream.ReadError, &in_stream.stream, &mos.stream);
-  std.debug.assert(std.mem.eql(u8, mos.getSlice(), ""));
+  std.debug.assert(std.mem.eql(u8, mos.getWritten(), "Second line"));
+
+  mos.reset();
+  try line_reader.read_line_from_stream(MemoryInStream.ReadError, &in_stream.stream, &mos.stream);
+  std.debug.assert(std.mem.eql(u8, mos.getWritten(), ""));
 
   // current behaviour is to throw an error when a read fails (e.g. end of
   // file). not sure if this is ideal
@@ -84,19 +83,18 @@ test "LineReader: reads lines and fails upon EOF" {
     else => {},
   };
   std.debug.assert(endOfFile == true);
-  std.debug.assert(std.mem.eql(u8, mos.getSlice(), "Unterminated line"));
+  std.debug.assert(std.mem.eql(u8, mos.getWritten(), "Unterminated line"));
 }
 
 test "LineReader: keeps consuming till EOL even if write fails" {
   const MemoryInStream = @import("MemoryInStream.zig").MemoryInStream;
-  const MemoryOutStream = @import("MemoryOutStream.zig").MemoryOutStream;
 
   var in_stream = MemoryInStream.init("First line is pretty long\nSecond\n");
 
   var out_buf: [12]u8 = undefined;
-  var mos = MemoryOutStream.init(out_buf[0..]);
+  var mos = std.io.SliceOutStream.init(out_buf[0..]);
 
-  const line_reader = LineReader(MemoryOutStream.WriteError);
+  const line_reader = LineReader(std.io.SliceOutStream.Error);
 
   var outOfSpace = false;
   mos.reset();
@@ -105,11 +103,11 @@ test "LineReader: keeps consuming till EOL even if write fails" {
     else => {},
   };
   std.debug.assert(outOfSpace == true);
-  std.debug.assert(std.mem.eql(u8, mos.getSlice(), "First line i"));
+  std.debug.assert(std.mem.eql(u8, mos.getWritten(), "First line i"));
 
   mos.reset();
   try line_reader.read_line_from_stream(MemoryInStream.ReadError, &in_stream.stream, &mos.stream);
-  std.debug.assert(std.mem.eql(u8, mos.getSlice(), "Second"));
+  std.debug.assert(std.mem.eql(u8, mos.getWritten(), "Second"));
 }
 
 // TODO - test line ending handling, i guess

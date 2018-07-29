@@ -1,9 +1,7 @@
 const builtin = @import("builtin");
 const std = @import("std");
-const MemoryOutStream = @import("../MemoryOutStream.zig").MemoryOutStream;
 const Seekable = @import("../traits/Seekable.zig").Seekable;
 const readOneNoEof = @import("../util.zig").readOneNoEof;
-const u1 = @import("../util.zig").u1;
 const Image = @import("image.zig").Image;
 const ImageFormat = @import("image.zig").ImageFormat;
 const Pixel = @import("image.zig").Pixel;
@@ -152,7 +150,7 @@ pub fn LoadTga(comptime ReadError: type) type {
           const compressed = tgaInfo.image_type == 10;
 
           const num_pixels = image.info.width * image.info.height;
-          var dest = MemoryOutStream.init(image.pixels);
+          var dest = std.io.SliceOutStream.init(image.pixels);
 
           var i: u32 = 0;
 
@@ -229,7 +227,7 @@ pub fn LoadTga(comptime ReadError: type) type {
       }
     }
 
-    fn writePixel(storeFormat: ImageFormat, dest: *MemoryOutStream, pixel: *const Pixel) void {
+    fn writePixel(storeFormat: ImageFormat, dest: *std.io.SliceOutStream, pixel: *const Pixel) void {
       switch (storeFormat) {
         // `catch unreachable` because we allocated the whole buffer at the right size
         ImageFormat.RGBA => dest.stream.write([]u8 { pixel.r, pixel.g, pixel.b, pixel.a }) catch unreachable,
