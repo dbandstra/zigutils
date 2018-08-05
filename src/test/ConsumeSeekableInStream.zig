@@ -12,7 +12,7 @@ fn ConsumeSeekableInStream(comptime ReadError: type) type {
       seekable: *Seekable,
       out_buf: []u8,
     ) !usize {
-      try seekable.seekTo(10);
+      _ = try seekable.seek(10, Seekable.Whence.Start);
       return try stream.read(out_buf);
     }
   };

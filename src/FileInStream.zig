@@ -27,10 +27,7 @@ pub const SeekableFileInStream = struct {
         .readFn = readFn,
       },
       .seekable = Seekable{
-        .seekForwardFn = seekForwardFn,
-        .seekToFn = seekToFn,
-        .getPosFn = getPosFn,
-        .getEndPosFn = getEndPosFn,
+        .seekFn = seekFn,
       },
     };
   }
@@ -45,28 +42,31 @@ pub const SeekableFileInStream = struct {
 
   // Seekable trait implementation
 
-  fn seekForwardFn(seekable: *Seekable, amount: isize) SeekError!void {
+  fn seekFn(seekable: *Seekable, ofs: i64, whence: Seekable.Whence) SeekError!i64 {
     const self = @fieldParentPtr(SeekableFileInStream, "seekable", seekable);
 
-    return self.file.seekForward(amount) catch SeekError.SeekError;
-  }
-
-  fn seekToFn(seekable: *Seekable, pos: usize) SeekError!void {
-    const self = @fieldParentPtr(SeekableFileInStream, "seekable", seekable);
-
-    return self.file.seekTo(pos) catch SeekError.SeekError;
-  }
-
-  fn getPosFn(seekable: *Seekable) SeekError!usize {
-    const self = @fieldParentPtr(SeekableFileInStream, "seekable", seekable);
-
-    return self.file.getPos() catch SeekError.SeekError;
-  }
-
-  fn getEndPosFn(seekable: *Seekable) SeekError!usize {
-    const self = @fieldParentPtr(SeekableFileInStream, "seekable", seekable);
-
-    return self.file.getEndPos() catch SeekError.SeekError;
+    switch (whence) {
+      Seekable.Whence.Start => {
+        const uofs = std.math.cast(usize, ofs) catch return SeekError.SeekError;
+        self.file.seekTo(uofs) catch return SeekError.SeekError;
+        return ofs;
+      },
+      Seekable.Whence.Current => {
+        self.file.seekForward(ofs) catch return SeekError.SeekError;
+        const new_pos = self.file.getPos() catch return SeekError.SeekError;
+        const upos = std.math.cast(i64, new_pos) catch return SeekError.SeekError;
+        return upos;
+      },
+      Seekable.Whence.End => {
+        const end_pos = self.file.getEndPos() catch return SeekError.SeekError;
+        const end_upos = std.math.cast(i64, end_pos) catch return SeekError.SeekError;
+        if (-ofs > end_upos) return SeekError.SeekError;
+        const new_pos = end_upos + ofs;
+        const new_upos = std.math.cast(usize, new_pos) catch return SeekError.SeekError;
+        self.file.seekTo(new_upos) catch return SeekError.SeekError;
+        return new_pos;
+      },
+    }
   }
 };
 
@@ -79,7 +79,7 @@ test "FileInStream" {
   var file = try File.openRead(allocator, "README.md");
   var sfis = SeekableFileInStream.init(&file);
 
-  try sfis.seekable.seekForward(20);
+  _ = try sfis.seekable.seek(20, Seekable.Whence.Current);
 
   var buf: [20]u8 = undefined;
   const n = try sfis.stream.read(buf[0..]);

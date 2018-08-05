@@ -118,7 +118,7 @@ pub fn ScanZip(comptime ReadError: type) type {
       stream: *InStream(ReadError),
       seekable: *Seekable,
     ) !bool {
-      try seekable.seekTo(0);
+      _ = try seekable.seek(0, Seekable.Whence.Start);
 
       const a = try stream.readByte();
       const b = try stream.readByte();
@@ -135,7 +135,7 @@ pub fn ScanZip(comptime ReadError: type) type {
       stream: *InStream(ReadError),
       seekable: *Seekable,
     ) !CentralDirectoryInfo {
-      const endPos = try seekable.getEndPos();
+      const endPos = try seekable.seek(0, Seekable.Whence.End);
 
       // what happens if this goes below 0? zig does something?
       var pos = endPos - @sizeOf(EndOfCentralDirectoryRecord.Struct);
@@ -143,7 +143,7 @@ pub fn ScanZip(comptime ReadError: type) type {
       while (pos > endPos - @sizeOf(EndOfCentralDirectoryRecord.Struct) - @maxValue(EndOfCentralDirectoryRecord.commentLength.getType())) {
         var eocdr: EndOfCentralDirectoryRecord.Struct = undefined;
 
-        try seekable.seekTo(pos);
+        _ = try seekable.seek(pos, Seekable.Whence.Start);
         try readOneNoEof(ReadError, stream, EndOfCentralDirectoryRecord.Struct, &eocdr);
 
         const signature = EndOfCentralDirectoryRecord.signature.read(&eocdr);
@@ -156,7 +156,7 @@ pub fn ScanZip(comptime ReadError: type) type {
           // the case, is it even possible to find the central directory?
           const commentLength = EndOfCentralDirectoryRecord.commentLength.read(&eocdr);
 
-          if (pos + @sizeOf(EndOfCentralDirectoryRecord.Struct) + commentLength == endPos) {
+          if (pos + @sizeOf(EndOfCentralDirectoryRecord.Struct) + i64(commentLength) == endPos) {
             return CentralDirectoryInfo{
               .offset = EndOfCentralDirectoryRecord.cdOffset.read(&eocdr),
               .size = EndOfCentralDirectoryRecord.cdSize.read(&eocdr),
@@ -193,7 +193,8 @@ pub fn ScanZip(comptime ReadError: type) type {
 
       var fileHeader: CentralDirectoryFileHeader.Struct = undefined;
 
-      try seekable.seekTo(walkState.cdInfo.offset + walkState.relPos);
+      var pos = std.math.cast(i64, walkState.cdInfo.offset + walkState.relPos) catch return Error.Corrupt;
+      _ = try seekable.seek(pos, Seekable.Whence.Start);
       try readOneNoEof(ReadError, stream, CentralDirectoryFileHeader.Struct, &fileHeader);
 
       const signature = CentralDirectoryFileHeader.signature.read(&fileHeader);
@@ -207,7 +208,8 @@ pub fn ScanZip(comptime ReadError: type) type {
       const extraFieldLength = CentralDirectoryFileHeader.extraFieldLength.read(&fileHeader);
       const fileCommentLength = CentralDirectoryFileHeader.fileCommentLength.read(&fileHeader);
 
-      try seekable.seekTo(walkState.cdInfo.offset + walkState.relPos + @sizeOf(CentralDirectoryFileHeader.Struct));
+      pos = std.math.cast(i64, walkState.cdInfo.offset + walkState.relPos + @sizeOf(CentralDirectoryFileHeader.Struct)) catch return Error.Corrupt;
+      _ = try seekable.seek(pos, Seekable.Whence.Start);
 
       // FIXME - error checking or something?
       const n = try stream.read(walkState.filenameBuf[0..fileNameLength]);

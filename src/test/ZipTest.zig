@@ -24,7 +24,8 @@ test "ZipTest: locate and decompress a file from a zip archive" {
   const info = try ScanZip(SeekableFileInStream.ReadError).find_file(&sfis.stream, &sfis.seekable, "zlib-1.2.11/adler32.c");
 
   if (info) |fileInfo| {
-    try sfis.seekable.seekTo(fileInfo.offset);
+    const pos = std.math.cast(i64, fileInfo.offset) catch unreachable;
+    _ = try sfis.seekable.seek(pos, Seekable.Whence.Start);
 
     std.debug.assert(fileInfo.compressionMethod == COMPRESSION_DEFLATE);
     std.debug.assert(fileInfo.uncompressedSize == uncompressedData.len);

@@ -12,7 +12,7 @@ const image = @import("image.zig");
 // support everything, no concern for performance, robust test suite.
 // once that's done, a performance-oriented implementation can be added
 
-const TGA_HEADER_SIZE: usize = 18;
+const TGA_HEADER_SIZE = 18;
 
 pub const TgaInfo = struct{
   id_length: u8,
@@ -139,7 +139,7 @@ pub fn LoadTga(comptime ReadError: type) type {
     ) LoadError!void {
       std.debug.assert(tgaInfo.width == img.info.width and tgaInfo.height == img.info.height);
 
-      try seekable.seekTo(TGA_HEADER_SIZE + usize(tgaInfo.id_length));
+      _ = try seekable.seek(TGA_HEADER_SIZE + tgaInfo.id_length, Seekable.Whence.Start);
 
       switch (tgaInfo.image_type) {
         else => unreachable,

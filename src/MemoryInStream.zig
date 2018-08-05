@@ -25,10 +25,7 @@ pub const MemoryInStream = struct {
         .readFn = readFn,
       },
       .seekable = Seekable{
-        .seekForwardFn = seekForwardFn,
-        .seekToFn = seekToFn,
-        .getPosFn = getPosFn,
-        .getEndPosFn = getEndPosFn,
+        .seekFn = seekFn,
       },
     };
   }
@@ -65,48 +62,50 @@ pub const MemoryInStream = struct {
 
   // Seekable trait implementation
 
-  fn seekForwardFn(seekable: *Seekable, amount: isize) Seekable.Error!void {
+  fn seekFn(seekable: *Seekable, ofs: i64, whence: Seekable.Whence) Seekable.Error!i64 {
     const self = @fieldParentPtr(MemoryInStream, "seekable", seekable);
 
-    if (amount > 0) {
-      const uamount = @intCast(usize, amount);
+    const end_pos = std.math.cast(i64, self.source_buffer.len) catch return Seekable.Error.SeekError;
 
-      if (self.index + uamount <= self.source_buffer.len) {
-        self.index += uamount;
-      } else {
-        return Seekable.Error.SeekError;
-      }
-    } else if (amount < 0) {
-      const uamount = @intCast(usize, -amount);
+    switch (whence) {
+      Seekable.Whence.Start => {
+        if (ofs >= 0 and ofs < end_pos) {
+          const uofs = std.math.cast(usize, ofs) catch return Seekable.Error.SeekError;
+          self.index = uofs;
+        } else {
+          return Seekable.Error.SeekError;
+        }
+      },
+      Seekable.Whence.Current => {
+        if (ofs > 0) {
+          const uofs = @intCast(usize, ofs);
 
-      if (self.index >= uamount) {
-        self.index -= uamount;
-      } else {
-        return Seekable.Error.SeekError;
-      }
+          if (self.index + uofs <= self.source_buffer.len) {
+            self.index += uofs;
+          } else {
+            return Seekable.Error.SeekError;
+          }
+        } else if (ofs < 0) {
+          const uofs = @intCast(usize, -ofs);
+
+          if (self.index >= uofs) {
+            self.index -= uofs;
+          } else {
+            return Seekable.Error.SeekError;
+          }
+        }
+      },
+      Seekable.Whence.End => {
+        if (ofs <= 0 and -ofs < end_pos) {
+          const unofs = std.math.cast(usize, -ofs) catch return Seekable.Error.SeekError;
+          self.index = self.source_buffer.len - unofs;
+        } else {
+          return Seekable.Error.SeekError;
+        }
+      },
     }
-  }
 
-  fn seekToFn(seekable: *Seekable, pos: usize) Seekable.Error!void {
-    const self = @fieldParentPtr(MemoryInStream, "seekable", seekable);
-
-    if (pos >= 0 and pos < self.source_buffer.len) {
-      self.index = pos;
-    } else {
-      return Seekable.Error.SeekError;
-    }
-  }
-
-  fn getPosFn(seekable: *Seekable) Seekable.Error!usize {
-    const self = @fieldParentPtr(MemoryInStream, "seekable", seekable);
-
-    return self.index;
-  }
-
-  fn getEndPosFn(seekable: *Seekable) Seekable.Error!usize {
-    const self = @fieldParentPtr(MemoryInStream, "seekable", seekable);
-
-    return self.source_buffer.len;
+    return std.math.cast(i64, self.index) catch Seekable.Error.SeekError;
   }
 };
 
@@ -149,33 +148,25 @@ test "MemoryInStream: seeking around" {
   const br0 = try mis.stream.read(dest_buf[0..]);
   std.debug.assert(std.mem.eql(u8, dest_buf[0..br0], "This "));
 
-  try mis.seekable.seekForward(3);
+  _ = try mis.seekable.seek(3, Seekable.Whence.Current);
   const br1 = try mis.stream.read(dest_buf[0..]);
   std.debug.assert(std.mem.eql(u8, dest_buf[0..br1], "a dec"));
 
-  try mis.seekable.seekForward(-2);
+  _ = try mis.seekable.seek(-2, Seekable.Whence.Current);
   const br2 = try mis.stream.read(dest_buf[0..]);
   std.debug.assert(std.mem.eql(u8, dest_buf[0..br2], "ecent"));
 
-  std.debug.assert((try mis.seekable.getPos()) == 16);
+  const cur_pos = try mis.seekable.seek(0, Seekable.Whence.Current);
+  std.debug.assert(cur_pos == 16);
 
-  try mis.seekable.seekTo(1);
+  _ = try mis.seekable.seek(1, Seekable.Whence.Start);
   const br3 = try mis.stream.read(dest_buf[0..]);
   std.debug.assert(std.mem.eql(u8, dest_buf[0..br3], "his i"));
 
-  try mis.seekable.seekTo((try mis.seekable.getEndPos()) - 3);
+  _ = try mis.seekable.seek(-3, Seekable.Whence.End);
   const br4 = try mis.stream.read(dest_buf[0..]);
   std.debug.assert(std.mem.eql(u8, dest_buf[0..br4], "ce."));
 
-  if (mis.seekable.seekTo(999)) {
-    unreachable;
-  } else |err| {
-    std.debug.assert(err == Seekable.Error.SeekError);
-  }
-
-  if (mis.seekable.seekForward(-999)) {
-    unreachable;
-  } else |err| {
-    std.debug.assert(err == Seekable.Error.SeekError);
-  }
+  std.debug.assertError(mis.seekable.seek(999, Seekable.Whence.Start), Seekable.Error.SeekError);
+  std.debug.assertError(mis.seekable.seek(-999, Seekable.Whence.Current), Seekable.Error.SeekError);
 }

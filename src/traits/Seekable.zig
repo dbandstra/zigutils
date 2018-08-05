@@ -4,25 +4,16 @@
 pub const Seekable = struct {
   pub const Error = error{SeekError};
 
-  seekForwardFn: fn (seekable: *Seekable, amount: isize) Error!void,
-  seekToFn: fn (seekable: *Seekable, pos: usize) Error!void,
-  getPosFn: fn (seekable: *Seekable) Error!usize,
-  getEndPosFn: fn (seekable: *Seekable) Error!usize,
+  pub const Whence = enum {
+    Start,
+    End,
+    Current,
+  };
+
+  seekFn: fn (seekable: *Seekable, ofs: i64, whence: Whence) Error!i64,
 
   // this boilerplate seems to be necessary for the self.func syntax to work...
-  fn seekForward(seekable: *Seekable, amount: isize) Error!void {
-    return seekable.seekForwardFn(seekable, amount);
-  }
-
-  fn seekTo(seekable: *Seekable, pos: usize) Error!void {
-    return seekable.seekToFn(seekable, pos);
-  }
-
-  fn getPos(seekable: *Seekable) Error!usize {
-    return seekable.getPosFn(seekable);
-  }
-
-  fn getEndPos(seekable: *Seekable) Error!usize {
-    return seekable.getEndPosFn(seekable);
+  pub fn seek(seekable: *Seekable, ofs: i64, whence: Whence) Error!i64 {
+    return seekable.seekFn(seekable, ofs, whence);
   }
 };
