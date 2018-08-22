@@ -70,13 +70,8 @@ pub const SeekableFileInStream = struct {
   }
 };
 
-  const ssaf = @import("test/util/test_allocator.zig").ssaf;
 test "FileInStream" {
-  const allocator = &ssaf.allocator;
-  const mark = ssaf.get_mark();
-  defer ssaf.free_to_mark(mark);
-
-  var file = try File.openRead(allocator, "README.md");
+  var file = try File.openRead("README.md");
   var sfis = SeekableFileInStream.init(&file);
 
   _ = try sfis.seekable.seek(20, Seekable.Whence.Current);

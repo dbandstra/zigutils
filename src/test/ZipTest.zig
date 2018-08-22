@@ -17,7 +17,7 @@ test "ZipTest: locate and decompress a file from a zip archive" {
 
   const uncompressedData = @embedFile("../testdata/adler32.c");
 
-  var file = try File.openRead(allocator, "src/testdata/zlib1211.zip");
+  var file = try File.openRead("src/testdata/zlib1211.zip");
   defer file.close();
   var sfis = SeekableFileInStream.init(&file);
 
@@ -52,11 +52,7 @@ test "ZipTest: locate and decompress a file from a zip archive" {
 }
 
 test "ZipTest: count files inside a zip archive" {
-  const allocator = &ssaf.allocator;
-  const mark = ssaf.get_mark();
-  defer ssaf.free_to_mark(mark);
-
-  var file = try File.openRead(allocator, "src/testdata/zlib1211.zip");
+  var file = try File.openRead("src/testdata/zlib1211.zip");
   defer file.close();
   var sfis = SeekableFileInStream.init(&file);
 
