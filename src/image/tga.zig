@@ -42,7 +42,7 @@ pub fn tgaBestStoreFormat(tgaInfo: *const TgaInfo) image.Format {
 
 pub fn LoadTga(comptime ReadError: type) type {
   return struct {
-    const Self = this;
+    const Self = @This();
 
     const PreloadError =
       ReadError ||

@@ -7,7 +7,7 @@ const OwnerId = @import("OwnerId.zig").OwnerId;
 
 pub fn InflateInStream(comptime SourceError: type) type {
   return struct {
-    const Self = this;
+    const Self = @This();
 
     pub const Error = SourceError || Inflater.Error;
 

@@ -8,7 +8,7 @@ const OwnerId = @import("OwnerId.zig").OwnerId;
 // multiple InflateInStreams, e.g. to decompress multiple files
 
 pub const Inflater = struct {
-  const Self = this;
+  const Self = @This();
 
   pub const Error = error{
     ZlibVersionError,
