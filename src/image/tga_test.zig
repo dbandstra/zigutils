@@ -17,7 +17,7 @@ test "LoadTga: load compressed 32-bit tga" {
   try testLoadTga(
     "../testdata/image/gem-compressed-32bit.tga",
     "../testdata/image/gem-raw-r8g8b8a8.data",
-    TestLoadTgaParams{
+    TestLoadTgaParams.{
       .expectedImageType = 10,
       .expectedPixelSize = 32,
       .expectedAttrBits = 8,
@@ -31,7 +31,7 @@ test "LoadTga: load uncompressed 32-bit tga" {
   try testLoadTga(
     "../testdata/image/gem-uncompressed-32bit.tga",
     "../testdata/image/gem-raw-r8g8b8a8.data",
-    TestLoadTgaParams{
+    TestLoadTgaParams.{
       .expectedImageType = 2,
       .expectedPixelSize = 32,
       .expectedAttrBits = 8,
@@ -45,7 +45,7 @@ test "LoadTga: load compressed 24-bit tga" {
   try testLoadTga(
     "../testdata/image/gem-compressed-24bit.tga",
     "../testdata/image/gem-raw-r8g8b8.data",
-    TestLoadTgaParams{
+    TestLoadTgaParams.{
       .expectedImageType = 10,
       .expectedPixelSize = 24,
       .expectedAttrBits = 0,
@@ -59,7 +59,7 @@ test "LoadTga: load uncompressed 24-bit tga" {
   try testLoadTga(
     "../testdata/image/gem-uncompressed-24bit.tga",
     "../testdata/image/gem-raw-r8g8b8.data",
-    TestLoadTgaParams{
+    TestLoadTgaParams.{
       .expectedImageType = 2,
       .expectedPixelSize = 24,
       .expectedAttrBits = 0,
@@ -73,7 +73,7 @@ test "LoadTga: load compressed 16-bit tga" {
   try testLoadTga(
     "../testdata/image/gem-compressed-16bit.tga",
     "../testdata/image/gem-raw-r8g8b8a8.data",
-    TestLoadTgaParams{
+    TestLoadTgaParams.{
       .expectedImageType = 10,
       .expectedPixelSize = 16,
       .expectedAttrBits = 1,
@@ -87,7 +87,7 @@ test "LoadTga: load uncompressed 16-bit tga" {
   try testLoadTga(
     "../testdata/image/gem-uncompressed-16bit.tga",
     "../testdata/image/gem-raw-r8g8b8a8.data",
-    TestLoadTgaParams{
+    TestLoadTgaParams.{
       .expectedImageType = 2,
       .expectedPixelSize = 16,
       .expectedAttrBits = 1,
@@ -97,7 +97,7 @@ test "LoadTga: load uncompressed 16-bit tga" {
   );
 }
 
-const TestLoadTgaParams = struct {
+const TestLoadTgaParams = struct.{
   expectedImageType: u8,
   expectedPixelSize: u8,
   expectedAttrBits: u4,
@@ -108,7 +108,7 @@ const TestLoadTgaParams = struct {
 fn testLoadTga(
   comptime tgaFilename: []const u8,
   comptime rawFilename: []const u8,
-  params: *const TestLoadTgaParams,
+  params: TestLoadTgaParams,
 ) !void {
   const allocator = &ssaf.allocator;
   const mark = ssaf.get_mark();
@@ -121,7 +121,7 @@ fn testLoadTga(
   std.debug.assert(tgaInfo.image_type == params.expectedImageType);
   std.debug.assert(tgaInfo.pixel_size == params.expectedPixelSize);
   std.debug.assert(tgaInfo.attr_bits == params.expectedAttrBits);
-  const img = try image.createImage(allocator, image.Info{
+  const img = try image.createImage(allocator, image.Info.{
     .width = tgaInfo.width,
     .height = tgaInfo.height,
     .format = tgaBestStoreFormat(tgaInfo),

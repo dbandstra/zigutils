@@ -19,8 +19,8 @@ const requireStringInStream = @import("util.zig").requireStringInStream;
 pub const COMPRESSION_NONE: u16 = 0;
 pub const COMPRESSION_DEFLATE: u16 = 8;
 
-const LocalFileHeader = struct {
-  const Struct = packed struct {
+const LocalFileHeader = struct.{
+  const Struct = packed struct.{
     signature: u32, // 0x04034b50
     version: u16,
     gpFlag: u16,
@@ -37,8 +37,8 @@ const LocalFileHeader = struct {
   };
 };
 
-const CentralDirectoryFileHeader = struct {
-  const Struct = packed struct {
+const CentralDirectoryFileHeader = struct.{
+  const Struct = packed struct.{
     signature: u32, // 0x02014b50
     versionMadeBy: u16,
     minVersionNeededToExtract: u16,
@@ -74,8 +74,8 @@ const CentralDirectoryFileHeader = struct {
   const fileCommentLength = fieldMeta(Struct, "fileCommentLength", builtin.Endian.Little);
 };
 
-const EndOfCentralDirectoryRecord = struct {
-  const Struct = packed struct {
+const EndOfCentralDirectoryRecord = struct.{
+  const Struct = packed struct.{
     signature: u32, // 0x06054b50
     diskNumber: u16,
     cdStartDisk: u16,
@@ -93,12 +93,12 @@ const EndOfCentralDirectoryRecord = struct {
   const cdOffset = fieldMeta(Struct, "cdOffset", builtin.Endian.Little);
 };
 
-pub const CentralDirectoryInfo = struct {
+pub const CentralDirectoryInfo = struct.{
   offset: u32,
   size: u32,
 };
 
-pub const ZipFileInfo = struct {
+pub const ZipFileInfo = struct.{
   compressionMethod: u16,
   compressedSize: u32,
   uncompressedSize: u32,
@@ -106,8 +106,8 @@ pub const ZipFileInfo = struct {
 };
 
 pub fn ScanZip(comptime ReadError: type) type {
-  return struct {
-    pub const Error = error{
+  return struct.{
+    pub const Error = error.{
       NotZipFile,
       Unsupported, // known feature but not implemented
       Corrupt, // corrupt or unsupported future thing
@@ -157,7 +157,7 @@ pub fn ScanZip(comptime ReadError: type) type {
           const commentLength = EndOfCentralDirectoryRecord.commentLength.read(&eocdr);
 
           if (pos + @sizeOf(EndOfCentralDirectoryRecord.Struct) + i64(commentLength) == endPos) {
-            return CentralDirectoryInfo{
+            return CentralDirectoryInfo.{
               .offset = EndOfCentralDirectoryRecord.cdOffset.read(&eocdr),
               .size = EndOfCentralDirectoryRecord.cdSize.read(&eocdr),
             };
@@ -171,11 +171,11 @@ pub fn ScanZip(comptime ReadError: type) type {
     }
 
     pub fn walkInit(
-      cdInfo: *const CentralDirectoryInfo,
+      cdInfo: CentralDirectoryInfo,
       walkState: *ZipWalkState,
       filenameBuf: []u8,
     ) void {
-      walkState.cdInfo = cdInfo.*;
+      walkState.cdInfo = cdInfo;
       walkState.relPos = 0;
       walkState.file = null;
       walkState.filenameBuf = filenameBuf;
@@ -219,9 +219,9 @@ pub fn ScanZip(comptime ReadError: type) type {
       const uncompressedSize = CentralDirectoryFileHeader.uncompressedSize.read(&fileHeader);
       const offset = CentralDirectoryFileHeader.relativeOffsetOfLocalFileHeader.read(&fileHeader);
 
-      walkState.file = ZipWalkFile{
+      walkState.file = ZipWalkFile.{
         .filename = walkState.filenameBuf[0..n],
-        .info = ZipFileInfo{
+        .info = ZipFileInfo.{
           .compressionMethod = compressionMethod,
           .compressedSize = compressedSize,
           .uncompressedSize = uncompressedSize,
@@ -237,7 +237,7 @@ pub fn ScanZip(comptime ReadError: type) type {
     }
 
     pub fn find_file_in_directory(
-      cdInfo: *const CentralDirectoryInfo,
+      cdInfo: CentralDirectoryInfo,
       stream: *InStream(ReadError),
       seekable: *Seekable,
       filename: []const u8,
@@ -277,14 +277,14 @@ pub fn ScanZip(comptime ReadError: type) type {
   };
 }
 
-pub const ZipWalkState = struct{
+pub const ZipWalkState = struct.{
   cdInfo: CentralDirectoryInfo,
   relPos: usize,
   file: ?ZipWalkFile,
   filenameBuf: []u8,
 };
 
-pub const ZipWalkFile = struct{
+pub const ZipWalkFile = struct.{
   filename: []const u8,
   info: ZipFileInfo,
 };

@@ -7,10 +7,10 @@ const OwnerId = @import("OwnerId.zig").OwnerId;
 // a lot of state and allocations. Splitting it off allows it to be reused by
 // multiple InflateInStreams, e.g. to decompress multiple files
 
-pub const Inflater = struct {
+pub const Inflater = struct.{
   const Self = @This();
 
-  pub const Error = error{
+  pub const Error = error.{
     ZlibVersionError,
     InvalidStream, // invalid/corrupt input
     OutOfMemory, // zlib's internal allocation failed
@@ -24,7 +24,7 @@ pub const Inflater = struct {
   owned_by: ?OwnerId,
 
   pub fn init(allocator: *std.mem.Allocator, windowBits: i32) Self {
-    var self = Self{
+    var self = Self.{
       .allocator = allocator,
       .windowBits = windowBits,
       .zlib_stream_active = false,
@@ -49,14 +49,14 @@ pub const Inflater = struct {
     }
   }
 
-  pub fn attachOwner(self: *Inflater, owner_id: *const OwnerId) void {
+  pub fn attachOwner(self: *Inflater, owner_id: OwnerId) void {
     if (self.owned_by) |_| {
       unreachable;
     }
-    self.owned_by = owner_id.*;
+    self.owned_by = owner_id;
   }
 
-  pub fn detachOwner(self: *Inflater, owner_id: *const OwnerId) void {
+  pub fn detachOwner(self: *Inflater, owner_id: OwnerId) void {
     self.verifyOwner(owner_id);
     self.owned_by = null;
     self.resetting = true;
@@ -74,7 +74,7 @@ pub const Inflater = struct {
     return self.zlib_stream.avail_in == 0;
   }
 
-  pub fn setInput(self: *Inflater, owner_id: *const OwnerId, source: []const u8) void {
+  pub fn setInput(self: *Inflater, owner_id: OwnerId, source: []const u8) void {
     self.verifyOwner(owner_id);
 
     std.debug.assert(self.zlib_stream.avail_in == 0);
@@ -85,7 +85,7 @@ pub const Inflater = struct {
     self.zlib_stream.total_in = 0;
   }
 
-  pub fn prepare(self: *Inflater, owner_id: *const OwnerId, buffer: []u8) Error!void {
+  pub fn prepare(self: *Inflater, owner_id: OwnerId, buffer: []u8) Error!void {
     self.verifyOwner(owner_id);
 
     if (!self.zlib_stream_active) {
@@ -115,7 +115,7 @@ pub const Inflater = struct {
 
   // return true if done or output buffer is full.
   // return false if more input is needed
-  pub fn inflate(self: *Inflater, owner_id: *const OwnerId) Error!bool {
+  pub fn inflate(self: *Inflater, owner_id: OwnerId) Error!bool {
     self.verifyOwner(owner_id);
     if (!self.zlib_stream_active) {
       unreachable; // FIXME
@@ -131,7 +131,7 @@ pub const Inflater = struct {
     };
   }
 
-  fn verifyOwner(self: *Inflater, owner_id: *const OwnerId) void {
+  fn verifyOwner(self: *Inflater, owner_id: OwnerId) void {
     if (self.owned_by) |owned_by| {
       if (owned_by.id != owner_id.id) {
         unreachable; // FIXME

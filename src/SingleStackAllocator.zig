@@ -8,15 +8,15 @@ const StackAllocator = @import("traits/StackAllocator.zig").StackAllocator;
 
 // should the name of this reflect that it's taking a fixed buffer?
 
-pub const SingleStackAllocator = struct {
+pub const SingleStackAllocator = struct.{
   stack: StackAllocator,
   used: usize,
   buffer: []u8,
 
   pub fn init(buffer: []u8) SingleStackAllocator {
-    return SingleStackAllocator{
-      .stack = StackAllocator{
-        .allocator = Allocator{
+    return SingleStackAllocator.{
+      .stack = StackAllocator.{
+        .allocator = Allocator.{
           .allocFn = alloc,
           .reallocFn = realloc,
           .freeFn = free,
@@ -32,7 +32,7 @@ pub const SingleStackAllocator = struct {
   fn alloc(allocator: *Allocator, n: usize, alignment: u29) ![]u8 {
     const stack = @fieldParentPtr(StackAllocator, "allocator", allocator);
     const self = @fieldParentPtr(SingleStackAllocator, "stack", stack);
-  
+
     const addr = @ptrToInt(self.buffer.ptr) + self.used;
     const rem = @rem(addr, alignment);
     const march_forward_bytes = if (rem == 0) 0 else (alignment - rem);

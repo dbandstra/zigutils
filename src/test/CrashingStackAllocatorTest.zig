@@ -3,65 +3,19 @@ const Allocator = std.mem.Allocator;
 
 var whatever = "aewfoahewgfiauhfeoaiuwehfoaiuewhfoaiwuehfoaiwuehf";
 
-
-
-pub const Simpler = struct {
-  allocator: Allocator,
-  simpler_field: i32,
-
-  pub fn init() Simpler {
-    return Simpler{
-      .allocator = Allocator{
-        .allocFn = alloc,
-        .reallocFn = realloc,
-        .freeFn = free,
-      },
-      .simpler_field = 300,
-    };
-  }
-
-  fn alloc(allocator: *Allocator, n: usize, alignment: u29) ![]u8 {
-    const simpler = @fieldParentPtr(Simpler, "allocator", allocator);
-
-    std.debug.warn("simpler_field before: {}\n", simpler.simpler_field);
-    simpler.simpler_field = 3;
-    std.debug.warn("simpler_field after: {}\n", simpler.simpler_field);
-
-    if (n == 12345) return error.OutOfMemory else return whatever[0..n];
-  }
-
-  fn realloc(allocator: *Allocator, old_mem: []u8, new_size: usize, alignment: u29) ![]u8 {
-    return error.OutOfMemory;
-  }
-
-  fn free(allocator: *Allocator, bytes: []u8) void {
-    unreachable;
-  }
-};
-
-pub const simpler_instance_ref = &simpler_instance;
-var simpler_instance = Simpler.init();
-
-test "this one works" {
-  std.debug.warn("\n");
-  _ = try simpler_instance_ref.allocator.alloc(u8, 10);
-}
-
-
-
-pub const Inner = struct {
+pub const Inner = struct.{
   allocator: Allocator,
   inner_field: i32,
 };
 
-pub const Outer = struct {
+pub const Outer = struct.{
   inner: Inner,
   outer_field: i32,
 
   pub fn init() Outer {
-    return Outer{
-      .inner = Inner{
-        .allocator = Allocator{
+    return Outer.{
+      .inner = Inner.{
+        .allocator = Allocator.{
           .allocFn = alloc,
           .reallocFn = realloc,
           .freeFn = free,

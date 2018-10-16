@@ -8,14 +8,14 @@ const builtin = @import("builtin");
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-pub const SingleStackAllocatorFlat = struct {
+pub const SingleStackAllocatorFlat = struct.{
   allocator: Allocator,
   used: usize,
   buffer: []u8,
 
   pub fn init(buffer: []u8) SingleStackAllocatorFlat {
-    return SingleStackAllocatorFlat{
-      .allocator = Allocator{
+    return SingleStackAllocatorFlat.{
+      .allocator = Allocator.{
         .allocFn = alloc,
         .reallocFn = realloc,
         .freeFn = free,
@@ -27,7 +27,7 @@ pub const SingleStackAllocatorFlat = struct {
 
   fn alloc(allocator: *Allocator, n: usize, alignment: u29) ![]u8 {
     const self = @fieldParentPtr(SingleStackAllocatorFlat, "allocator", allocator);
-  
+
     const addr = @ptrToInt(self.buffer.ptr) + self.used;
     const rem = @rem(addr, alignment);
     const march_forward_bytes = if (rem == 0) 0 else (alignment - rem);
