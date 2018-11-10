@@ -140,7 +140,7 @@ pub fn ScanZip(comptime ReadError: type) type {
       // what happens if this goes below 0? zig does something?
       var pos = endPos - @sizeOf(EndOfCentralDirectoryRecord.Struct);
 
-      while (pos > endPos - @sizeOf(EndOfCentralDirectoryRecord.Struct) - @maxValue(EndOfCentralDirectoryRecord.commentLength.getType())) {
+      while (pos > endPos - @sizeOf(EndOfCentralDirectoryRecord.Struct) - std.math.maxInt(EndOfCentralDirectoryRecord.commentLength.getType())) {
         var eocdr: EndOfCentralDirectoryRecord.Struct = undefined;
 
         _ = try seekable.seek(pos, Seekable.Whence.Start);
