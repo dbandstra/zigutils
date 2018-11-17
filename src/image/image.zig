@@ -1,7 +1,7 @@
 const std = @import("std");
 const swapSlices = @import("../util.zig").swapSlices;
 
-pub const Format = enum.{
+pub const Format = enum{
   RGBA,
   RGB,
   INDEXED,
@@ -15,23 +15,23 @@ pub const Format = enum.{
   }
 };
 
-pub const Info = struct.{
+pub const Info = struct{
   width: u32,
   height: u32,
   format: Format,
 };
 
-pub const Palette = struct.{
+pub const Palette = struct{
   format: Format,
   data: []u8,
 };
 
-pub const Image = struct.{
+pub const Image = struct{
   info: Info,
   pixels: []u8,
 };
 
-pub const Pixel = struct.{
+pub const Pixel = struct{
   r: u8,
   g: u8,
   b: u8,
@@ -41,7 +41,7 @@ pub const Pixel = struct.{
 pub fn createImage(allocator: *std.mem.Allocator, info: Info) !*Image {
   const pixels = try allocator.alloc(u8, info.width * info.height * Format.getBytesPerPixel(info.format));
 
-  var image = try allocator.create(Image.{
+  var image = try allocator.create(Image{
     .info = info,
     .pixels = pixels,
   });
@@ -57,7 +57,7 @@ pub fn destroyImage(allocator: *std.mem.Allocator, img: *Image) void {
 pub fn createPalette(allocator: *std.mem.Allocator) !*Palette {
   const data = try allocator.alloc(u8, 256*3);
 
-  var palette = try allocator.create(Palette.{
+  var palette = try allocator.create(Palette{
     .format = Format.RGB,
     .data = data,
   });
@@ -84,7 +84,7 @@ pub fn convertToTrueColor(
   while (i < dest.info.width * dest.info.height) : (i += 1) {
     const index = source.pixels[i];
     if ((transparent_color_index orelse ~index) == index) {
-      setColor(dest.info.format, dest.pixels, i, Pixel.{
+      setColor(dest.info.format, dest.pixels, i, Pixel{
         .r = 0,
         .g = 0,
         .b = 0,
@@ -146,7 +146,7 @@ pub fn getColor(format: Format, data: []const u8, ofs: usize) Pixel {
     Format.RGBA => {
       const mem = data[ofs * 4..ofs * 4 + 4];
 
-      return Pixel.{
+      return Pixel{
         .r = mem[0],
         .g = mem[1],
         .b = mem[2],
@@ -156,7 +156,7 @@ pub fn getColor(format: Format, data: []const u8, ofs: usize) Pixel {
     Format.RGB => {
       const mem = data[ofs * 3..ofs * 3 + 3];
 
-      return Pixel.{
+      return Pixel{
         .r = mem[0],
         .g = mem[1],
         .b = mem[2],
@@ -166,7 +166,7 @@ pub fn getColor(format: Format, data: []const u8, ofs: usize) Pixel {
     Format.INDEXED => {
       const index = data[ofs];
 
-      return Pixel.{
+      return Pixel{
         .r = index,
         .g = index,
         .b = index,

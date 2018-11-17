@@ -1,7 +1,7 @@
 const std = @import("std");
 
 pub fn WritePpm(comptime WriteError: type) type {
-  return struct.{
+  return struct{
     pub fn write(image: *const Image, stream: *std.io.OutStream(WriteError)) !void {
       try stream.print("P3\n");
       try stream.print("{} {}\n", image.width, image.height);

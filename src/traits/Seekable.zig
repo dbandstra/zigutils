@@ -1,10 +1,10 @@
 // this is a "trait".
 // too bad these are function pointers. i don't need that...
 // or does the compiler actually prune them out somehow?
-pub const Seekable = struct.{
-  pub const Error = error.{SeekError};
+pub const Seekable = struct{
+  pub const Error = error{SeekError};
 
-  pub const Whence = enum.{
+  pub const Whence = enum{
     Start,
     End,
     Current,

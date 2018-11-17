@@ -6,7 +6,7 @@ const OwnerId = @import("OwnerId.zig").OwnerId;
 // TODO - add more tests
 
 pub fn InflateInStream(comptime SourceError: type) type {
-  return struct.{
+  return struct{
     const Self = @This();
 
     pub const Error = SourceError || Inflater.Error;
@@ -28,12 +28,12 @@ pub fn InflateInStream(comptime SourceError: type) type {
 
       inflater.attachOwner(owner_id);
 
-      return Self.{
+      return Self{
         .source = source,
         .inflater = inflater,
         .compressed_buffer = buffer,
         .owner_id = owner_id,
-        .stream = ImplStream.{
+        .stream = ImplStream{
           .readFn = readFn,
         },
       };

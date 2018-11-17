@@ -6,7 +6,7 @@ const ArrayList = std.ArrayList;
 // (caller provides the array list instance)
 //
 
-pub const ArrayListOutStream = struct.{
+pub const ArrayListOutStream = struct{
   array_list: *ArrayList(u8),
   stream: Stream,
 
@@ -14,9 +14,9 @@ pub const ArrayListOutStream = struct.{
   pub const Stream = std.io.OutStream(Error);
 
   pub fn init(array_list: *ArrayList(u8)) ArrayListOutStream {
-    return ArrayListOutStream.{
+    return ArrayListOutStream{
       .array_list = array_list,
-      .stream = Stream.{ .writeFn = writeFn },
+      .stream = Stream{ .writeFn = writeFn },
     };
   }
 

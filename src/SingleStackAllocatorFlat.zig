@@ -8,14 +8,14 @@ const builtin = @import("builtin");
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-pub const SingleStackAllocatorFlat = struct.{
+pub const SingleStackAllocatorFlat = struct{
   allocator: Allocator,
   used: usize,
   buffer: []u8,
 
   pub fn init(buffer: []u8) SingleStackAllocatorFlat {
-    return SingleStackAllocatorFlat.{
-      .allocator = Allocator.{
+    return SingleStackAllocatorFlat{
+      .allocator = Allocator{
         .allocFn = alloc,
         .reallocFn = realloc,
         .freeFn = free,

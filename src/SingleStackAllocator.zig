@@ -8,15 +8,15 @@ const StackAllocator = @import("traits/StackAllocator.zig").StackAllocator;
 
 // should the name of this reflect that it's taking a fixed buffer?
 
-pub const SingleStackAllocator = struct.{
+pub const SingleStackAllocator = struct{
   stack: StackAllocator,
   used: usize,
   buffer: []u8,
 
   pub fn init(buffer: []u8) SingleStackAllocator {
-    return SingleStackAllocator.{
-      .stack = StackAllocator.{
-        .allocator = Allocator.{
+    return SingleStackAllocator{
+      .stack = StackAllocator{
+        .allocator = Allocator{
           .allocFn = alloc,
           .reallocFn = realloc,
           .freeFn = free,

@@ -6,7 +6,7 @@ const MemoryInStream = @import("../MemoryInStream.zig").MemoryInStream;
 // this is an example of a function that takes in something with multiple
 // traits. not very elegant, they have to be passed in separate args...
 fn ConsumeSeekableInStream(comptime ReadError: type) type {
-  return struct.{
+  return struct{
     pub fn consume(
       stream: *InStream(ReadError),
       seekable: *Seekable,

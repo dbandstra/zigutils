@@ -7,10 +7,10 @@ const OwnerId = @import("OwnerId.zig").OwnerId;
 // a lot of state and allocations. Splitting it off allows it to be reused by
 // multiple InflateInStreams, e.g. to decompress multiple files
 
-pub const Inflater = struct.{
+pub const Inflater = struct{
   const Self = @This();
 
-  pub const Error = error.{
+  pub const Error = error{
     ZlibVersionError,
     InvalidStream, // invalid/corrupt input
     OutOfMemory, // zlib's internal allocation failed
@@ -24,7 +24,7 @@ pub const Inflater = struct.{
   owned_by: ?OwnerId,
 
   pub fn init(allocator: *std.mem.Allocator, windowBits: i32) Self {
-    var self = Self.{
+    var self = Self{
       .allocator = allocator,
       .windowBits = windowBits,
       .zlib_stream_active = false,

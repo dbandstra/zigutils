@@ -94,7 +94,7 @@ pub fn fieldMeta(comptime Struct: type, comptime fieldName: []const u8, comptime
   const fieldSize = @sizeOf(field.field_type);
   const offset = field.offset orelse 0;
 
-  return struct.{
+  return struct{
     fn read(instance: *const Struct) field.field_type {
       const bytes = @intToPtr([*]u8, @ptrToInt(instance) + offset)[0..fieldSize];
 

@@ -8,23 +8,23 @@ const Seekable = @import("traits/Seekable.zig").Seekable;
 // implements the following traits: InStream, Seekable
 //
 
-pub const MemoryInStream = struct.{
+pub const MemoryInStream = struct{
   source_buffer: []const u8,
   index: usize,
   stream: Stream,
   seekable: Seekable,
 
-  pub const ReadError = error.{};
+  pub const ReadError = error{};
   pub const Stream = std.io.InStream(ReadError);
 
   pub fn init(buffer: []const u8) MemoryInStream {
-    return MemoryInStream.{
+    return MemoryInStream{
       .source_buffer = buffer,
       .index = 0,
-      .stream = Stream.{
+      .stream = Stream{
         .readFn = readFn,
       },
-      .seekable = Seekable.{
+      .seekable = Seekable{
         .seekFn = seekFn,
       },
     };

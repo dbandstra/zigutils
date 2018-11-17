@@ -2,7 +2,7 @@ const builtin = @import("builtin");
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-pub const DoubleStackAllocatorFlat = struct.{
+pub const DoubleStackAllocatorFlat = struct{
   low_allocator: Allocator,
   high_allocator: Allocator,
   low_used: usize,
@@ -10,13 +10,13 @@ pub const DoubleStackAllocatorFlat = struct.{
   buffer: []u8,
 
   pub fn init(buffer: []u8) DoubleStackAllocatorFlat {
-    return DoubleStackAllocatorFlat.{
-      .low_allocator = Allocator.{
+    return DoubleStackAllocatorFlat{
+      .low_allocator = Allocator{
         .allocFn = alloc_low,
         .reallocFn = realloc_low,
         .freeFn = free,
       },
-      .high_allocator = Allocator.{
+      .high_allocator = Allocator{
         .allocFn = alloc_high,
         .reallocFn = realloc_high,
         .freeFn = free,

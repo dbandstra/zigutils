@@ -5,7 +5,7 @@ const std = @import("std");
 //
 
 pub fn LineReader(comptime OutStreamError: type) type {
-  return struct.{
+  return struct{
     // TODO - move this out... too specialized
     pub fn read_line_from_stdin(out_stream: *std.io.OutStream(OutStreamError)) !void {
       var stdin = std.io.getStdIn() catch return error.StdInUnavailable;

@@ -26,7 +26,7 @@ const mem = std.mem;
 // i haven't even tried to use the high_allocator so there's a good chance
 // the code is wrong
 
-pub const StackAllocator = struct.{
+pub const StackAllocator = struct{
   allocator: Allocator,
   // getMarkFn: fn (self: *StackAllocator) usize,
   // freeToMarkFn: fn (self: *StackAllocator, pos: usize) void,
@@ -43,7 +43,7 @@ pub const StackAllocator = struct.{
 
 var asdf = "aewofhaowefuhaiwefuhaiuehfaiwuehfaiwuefhaiwefuhaiwuehf";
 
-pub const DoubleStackAllocator = struct.{
+pub const DoubleStackAllocator = struct{
   low_stack: StackAllocator,
   // high_stack: StackAllocator,
   low_used: usize,
@@ -51,9 +51,9 @@ pub const DoubleStackAllocator = struct.{
   buffer: []u8,
 
   pub fn init(buffer: []u8) DoubleStackAllocator {
-    return DoubleStackAllocator.{
-      .low_stack = StackAllocator.{
-        .allocator = Allocator.{
+    return DoubleStackAllocator{
+      .low_stack = StackAllocator{
+        .allocator = Allocator{
           .allocFn = alloc_low,
           .reallocFn = realloc_low,
           .freeFn = free,

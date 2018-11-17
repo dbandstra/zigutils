@@ -3,19 +3,19 @@ const Allocator = std.mem.Allocator;
 
 var whatever = "aewfoahewgfiauhfeoaiuwehfoaiuewhfoaiwuehfoaiwuehf";
 
-pub const Inner = struct.{
+pub const Inner = struct{
   allocator: Allocator,
   inner_field: i32,
 };
 
-pub const Outer = struct.{
+pub const Outer = struct{
   inner: Inner,
   outer_field: i32,
 
   pub fn init() Outer {
-    return Outer.{
-      .inner = Inner.{
-        .allocator = Allocator.{
+    return Outer{
+      .inner = Inner{
+        .allocator = Allocator{
           .allocFn = alloc,
           .reallocFn = realloc,
           .freeFn = free,

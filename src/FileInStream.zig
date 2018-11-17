@@ -11,7 +11,7 @@ const Seekable = @import("traits/Seekable.zig").Seekable;
 // implements the following traits: InStream, Seekable
 //
 
-pub const SeekableFileInStream = struct.{
+pub const SeekableFileInStream = struct{
   file: *File,
   stream: Stream,
   seekable: Seekable,
@@ -21,12 +21,12 @@ pub const SeekableFileInStream = struct.{
   pub const Stream = InStream(ReadError);
 
   pub fn init(file: *File) SeekableFileInStream {
-    return SeekableFileInStream.{
+    return SeekableFileInStream{
       .file = file,
-      .stream = Stream.{
+      .stream = Stream{
         .readFn = readFn,
       },
-      .seekable = Seekable.{
+      .seekable = Seekable{
         .seekFn = seekFn,
       },
     };
