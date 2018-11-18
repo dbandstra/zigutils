@@ -1,0 +1,8 @@
+language: minimal
+os:
+  - linux
+install:
+  - wget https://ziglang.org/builds/zig-linux-x86_64-master.tar.xz
+  - tar xf zig-linux-x86_64-master.tar.xz
+script:
+  - ./zig-linux-x86_64-master/zig build test

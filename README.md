@@ -1,4 +1,5 @@
 # Zig utils
+[![Build Status](https://travis-ci.org/dbandstra/zigutils.svg?branch=master)](https://travis-ci.org/dbandstra/zigutils)
 
 Some [Zig](https://github.com/ziglang/zig) functions, nothing finished or polished.
 
