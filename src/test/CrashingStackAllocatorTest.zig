@@ -1,3 +1,5 @@
+// https://github.com/ziglang/zig/issues/1636
+
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
