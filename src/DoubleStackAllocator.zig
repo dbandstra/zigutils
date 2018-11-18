@@ -117,7 +117,7 @@ pub const DoubleStackAllocator = struct{
   }
 
   fn free(allocator: *Allocator, bytes: []u8) void {
-    std.debug.warn("Warning: StackAllocator free function does nothing!\n");
+    // std.debug.warn("Warning: StackAllocator free function does nothing!\n");
   }
 
   fn get_low_mark(stack_allocator: *StackAllocator) usize {

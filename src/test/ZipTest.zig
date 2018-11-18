@@ -1,7 +1,7 @@
 const std = @import("std");
 const File = std.os.File;
 const InStream = std.io.InStream;
-const ssaf = @import("util/test_allocator.zig").ssaf;
+const SingleStackAllocator = @import("../SingleStackAllocator.zig").SingleStackAllocator;
 const Seekable = @import("../traits/Seekable.zig").Seekable;
 const SeekableFileInStream = @import("../FileInStream.zig").SeekableFileInStream;
 const ScanZip = @import("../ScanZip.zig").ScanZip;
@@ -11,9 +11,11 @@ const Inflater = @import("../Inflater.zig").Inflater;
 const InflateInStream = @import("../InflateInStream.zig").InflateInStream;
 
 test "ZipTest: locate and decompress a file from a zip archive" {
-  const allocator = &ssaf.allocator;
-  const mark = ssaf.get_mark();
-  defer ssaf.free_to_mark(mark);
+  var memory: [100 * 1024]u8 = undefined;
+  var ssa = SingleStackAllocator.init(memory[0..]);
+  const allocator = &ssa.stack.allocator;
+  const mark = ssa.stack.get_mark();
+  defer ssa.stack.free_to_mark(mark);
 
   const uncompressedData = @embedFile("../testdata/adler32.c");
 

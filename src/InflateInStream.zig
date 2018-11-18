@@ -80,10 +80,11 @@ pub fn InflateInStream(comptime SourceError: type) type {
 }
 
 test "InflateInStream: works on valid input" {
-  const ssaf = @import("test/util/test_allocator.zig").ssaf;
-  const allocator = &ssaf.allocator;
-  const mark = ssaf.get_mark();
-  defer ssaf.free_to_mark(mark);
+  var memory: [100 * 1024]u8 = undefined;
+  var ssa = @import("SingleStackAllocator.zig").SingleStackAllocator.init(memory[0..]);
+  const allocator = &ssa.stack.allocator;
+  const mark = ssa.stack.get_mark();
+  defer ssa.stack.free_to_mark(mark);
 
   const MemoryInStream = @import("MemoryInStream.zig").MemoryInStream;
 
@@ -114,10 +115,11 @@ test "InflateInStream: works on valid input" {
 }
 
 test "InflateInStream: fails with InvalidStream on bad input" {
-  const ssaf = @import("test/util/test_allocator.zig").ssaf;
-  const allocator = &ssaf.allocator;
-  const mark = ssaf.get_mark();
-  defer ssaf.free_to_mark(mark);
+  var memory: [100 * 1024]u8 = undefined;
+  var ssa = @import("SingleStackAllocator.zig").SingleStackAllocator.init(memory[0..]);
+  const allocator = &ssa.stack.allocator;
+  const mark = ssa.stack.get_mark();
+  defer ssa.stack.free_to_mark(mark);
 
   const MemoryInStream = @import("MemoryInStream.zig").MemoryInStream;
 

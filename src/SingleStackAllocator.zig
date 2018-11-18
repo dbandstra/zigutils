@@ -60,7 +60,7 @@ pub const SingleStackAllocator = struct{
   }
 
   fn free(allocator: *Allocator, bytes: []u8) void {
-    std.debug.warn("Warning: StackAllocator free function does nothing!\n");
+    // std.debug.warn("Warning: StackAllocator free function does nothing!\n");
   }
 
   fn get_mark(stack: *StackAllocator) usize {

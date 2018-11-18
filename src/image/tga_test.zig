@@ -1,5 +1,5 @@
 const std = @import("std");
-const ssaf = @import("../test/util/test_allocator.zig").ssaf;
+const SingleStackAllocator = @import("../SingleStackAllocator.zig").SingleStackAllocator;
 const ArrayListOutStream = @import("../ArrayListOutStream.zig").ArrayListOutStream;
 const MemoryInStream = @import("../MemoryInStream.zig").MemoryInStream;
 const image = @import("image.zig");
@@ -110,9 +110,11 @@ fn testLoadTga(
   comptime rawFilename: []const u8,
   params: TestLoadTgaParams,
 ) !void {
-  const allocator = &ssaf.allocator;
-  const mark = ssaf.get_mark();
-  defer ssaf.free_to_mark(mark);
+  var memory: [100 * 1024]u8 = undefined;
+  var ssa = SingleStackAllocator.init(memory[0..]);
+  const allocator = &ssa.stack.allocator;
+  const mark = ssa.stack.get_mark();
+  defer ssa.stack.free_to_mark(mark);
 
   var source = MemoryInStream.init(@embedFile(tgaFilename));
 

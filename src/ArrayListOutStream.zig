@@ -28,10 +28,11 @@ pub const ArrayListOutStream = struct{
 };
 
 test "ArrayListOutStream" {
-  const ssaf = @import("test/util/test_allocator.zig").ssaf;
-  const allocator = &ssaf.allocator;
-  const mark = ssaf.get_mark();
-  defer ssaf.free_to_mark(mark);
+  var memory: [1024]u8 = undefined;
+  var ssa = @import("SingleStackAllocator.zig").SingleStackAllocator.init(memory[0..]);
+  const allocator = &ssa.stack.allocator;
+  const mark = ssa.stack.get_mark();
+  defer ssa.stack.free_to_mark(mark);
 
   var array_list = ArrayList(u8).init(allocator);
   defer array_list.deinit();
