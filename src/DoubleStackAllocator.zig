@@ -1,3 +1,6 @@
+// WARNING: this will probably crash if instantiated at the global scope
+// see https://github.com/ziglang/zig/issues/1636
+
 const builtin = @import("builtin");
 const std = @import("std");
 const Allocator = std.mem.Allocator;
@@ -113,7 +116,9 @@ pub const DoubleStackAllocator = struct{
     }
   }
 
-  fn free(allocator: *Allocator, bytes: []u8) void {}
+  fn free(allocator: *Allocator, bytes: []u8) void {
+    std.debug.warn("Warning: StackAllocator free function does nothing!\n");
+  }
 
   fn get_low_mark(stack_allocator: *StackAllocator) usize {
     const self = @fieldParentPtr(DoubleStackAllocator, "low_stack", stack_allocator);
@@ -155,31 +160,34 @@ test "DoubleStackAllocator" {
   var buf: [100]u8 = undefined;
   var hunk = DoubleStackAllocator.init(buf[0..]);
 
-  const high_mark = hunk.high_stack.get_mark();
+  const low_stack = &hunk.low_stack;
+  const high_stack = &hunk.high_stack;
 
-  _ = try hunk.low_stack.allocator.alloc(u8, 7);
-  _ = try hunk.high_stack.allocator.alloc(u8, 8);
+  const high_mark = high_stack.get_mark();
+
+  _ = try low_stack.allocator.alloc(u8, 7);
+  _ = try high_stack.allocator.alloc(u8, 8);
 
   std.debug.assert(hunk.low_used == 7);
   std.debug.assert(hunk.high_used == 8);
 
-  _ = try hunk.high_stack.allocator.alloc(u8, 8);
+  _ = try high_stack.allocator.alloc(u8, 8);
 
   std.debug.assert(hunk.high_used == 16);
 
-  const low_mark = hunk.low_stack.get_mark();
+  const low_mark = low_stack.get_mark();
 
-  _ = try hunk.low_stack.allocator.alloc(u8, 100 - 7 - 16);
+  _ = try low_stack.allocator.alloc(u8, 100 - 7 - 16);
 
   std.debug.assert(hunk.low_used == 100 - 16);
 
-  std.debug.assertError(hunk.high_stack.allocator.alloc(u8, 1), error.OutOfMemory);
+  std.debug.assertError(high_stack.allocator.alloc(u8, 1), error.OutOfMemory);
 
-  hunk.low_stack.free_to_mark(low_mark);
+  low_stack.free_to_mark(low_mark);
 
-  _ = try hunk.high_stack.allocator.alloc(u8, 1);
+  _ = try high_stack.allocator.alloc(u8, 1);
 
-  hunk.high_stack.free_to_mark(high_mark);
+  high_stack.free_to_mark(high_mark);
 
   std.debug.assert(hunk.high_used == 0);
 }

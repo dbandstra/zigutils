@@ -1,3 +1,6 @@
+// WARNING: this will probably crash if instantiated at the global scope
+// see https://github.com/ziglang/zig/issues/1636
+
 const builtin = @import("builtin");
 const std = @import("std");
 const Allocator = std.mem.Allocator;
@@ -56,7 +59,9 @@ pub const SingleStackAllocator = struct{
     }
   }
 
-  fn free(allocator: *Allocator, bytes: []u8) void {}
+  fn free(allocator: *Allocator, bytes: []u8) void {
+    std.debug.warn("Warning: StackAllocator free function does nothing!\n");
+  }
 
   fn get_mark(stack: *StackAllocator) usize {
     const self = @fieldParentPtr(SingleStackAllocator, "stack", stack);
