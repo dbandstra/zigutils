@@ -86,17 +86,15 @@ test "InflateInStream: works on valid input" {
   const mark = ssa.stack.get_mark();
   defer ssa.stack.free_to_mark(mark);
 
-  const MemoryInStream = @import("MemoryInStream.zig").MemoryInStream;
-
   const compressedData = @embedFile("testdata/adler32.c-compressed");
   const uncompressedData = @embedFile("testdata/adler32.c");
 
-  var source = MemoryInStream.init(compressedData);
+  var source = std.io.SliceInStream.init(compressedData);
 
   var inflater = Inflater.init(allocator, -15);
   defer inflater.deinit();
   var inflaterBuf: [256]u8 = undefined;
-  var inflateStream = InflateInStream(MemoryInStream.ReadError).init(&inflater, &source.stream, inflaterBuf[0..]);
+  var inflateStream = InflateInStream(std.io.SliceInStream.Error).init(&inflater, &source.stream, inflaterBuf[0..]);
   defer inflateStream.deinit();
 
   var buffer: [256]u8 = undefined;
@@ -121,23 +119,20 @@ test "InflateInStream: fails with InvalidStream on bad input" {
   const mark = ssa.stack.get_mark();
   defer ssa.stack.free_to_mark(mark);
 
-  const MemoryInStream = @import("MemoryInStream.zig").MemoryInStream;
-
   const uncompressedData = @embedFile("testdata/adler32.c");
 
-  var source = MemoryInStream.init(uncompressedData);
+  var source = std.io.SliceInStream.init(uncompressedData);
 
   var inflater = Inflater.init(allocator, -15);
   defer inflater.deinit();
   var inflateBuf: [256]u8 = undefined;
-  var inflateStream = InflateInStream(MemoryInStream.ReadError).init(&inflater, &source.stream, inflateBuf[0..]);
+  var inflateStream = InflateInStream(std.io.SliceInStream.Error).init(&inflater, &source.stream, inflateBuf[0..]);
   defer inflateStream.deinit();
 
   var buffer: [256]u8 = undefined;
 
-  if (inflateStream.stream.read(buffer[0..])) {
-    unreachable;
-  } else |err| {
-    std.debug.assert(err == InflateInStream(MemoryInStream.ReadError).Error.InvalidStream);
-  }
+  std.debug.assertError(
+    inflateStream.stream.read(buffer[0..]),
+    InflateInStream(std.io.SliceInStream.Error).Error.InvalidStream,
+  );
 }

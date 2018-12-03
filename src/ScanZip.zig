@@ -5,8 +5,6 @@
 
 const builtin = @import("builtin");
 const std = @import("std");
-const InStream = std.io.InStream;
-const Seekable = @import("traits/Seekable.zig").Seekable;
 const readOneNoEof = @import("util.zig").readOneNoEof;
 const fieldMeta = @import("util.zig").fieldMeta;
 const requireStringInStream = @import("util.zig").requireStringInStream;
@@ -105,7 +103,14 @@ pub const ZipFileInfo = struct{
   offset: usize,
 };
 
-pub fn ScanZip(comptime ReadError: type) type {
+pub fn ScanZip(
+  comptime ReadError: type,
+  comptime SeekError: type,
+  comptime GetSeekPosError: type,
+) type {
+  const MyInStream = std.io.InStream(ReadError);
+  const MySeekableStream = std.io.SeekableStream(SeekError, GetSeekPosError);
+
   return struct{
     pub const Error = error{
       NotZipFile,
@@ -115,10 +120,10 @@ pub fn ScanZip(comptime ReadError: type) type {
 
     // try to decide if the file is actually a zip file. this could be improved
     pub fn is_zip_file(
-      stream: *InStream(ReadError),
-      seekable: *Seekable,
+      stream: *MyInStream,
+      seekable: *MySeekableStream,
     ) !bool {
-      _ = try seekable.seek(0, Seekable.Whence.Start);
+      try seekable.seekTo(0);
 
       const a = try stream.readByte();
       const b = try stream.readByte();
@@ -132,10 +137,10 @@ pub fn ScanZip(comptime ReadError: type) type {
     // assume the seek position is undefined after calling this function.
     // TODO - extremely inefficient, optimize this function!
     pub fn find_central_directory(
-      stream: *InStream(ReadError),
-      seekable: *Seekable,
+      stream: *MyInStream,
+      seekable: *MySeekableStream,
     ) !CentralDirectoryInfo {
-      const endPos = try seekable.seek(0, Seekable.Whence.End);
+      const endPos = try seekable.getEndPos();
 
       // what happens if this goes below 0? zig does something?
       var pos = endPos - @sizeOf(EndOfCentralDirectoryRecord.Struct);
@@ -143,7 +148,7 @@ pub fn ScanZip(comptime ReadError: type) type {
       while (pos > endPos - @sizeOf(EndOfCentralDirectoryRecord.Struct) - std.math.maxInt(EndOfCentralDirectoryRecord.commentLength.getType())) {
         var eocdr: EndOfCentralDirectoryRecord.Struct = undefined;
 
-        _ = try seekable.seek(pos, Seekable.Whence.Start);
+        try seekable.seekTo(pos);
         try readOneNoEof(ReadError, stream, EndOfCentralDirectoryRecord.Struct, &eocdr);
 
         const signature = EndOfCentralDirectoryRecord.signature.read(&eocdr);
@@ -156,7 +161,7 @@ pub fn ScanZip(comptime ReadError: type) type {
           // the case, is it even possible to find the central directory?
           const commentLength = EndOfCentralDirectoryRecord.commentLength.read(&eocdr);
 
-          if (pos + @sizeOf(EndOfCentralDirectoryRecord.Struct) + i64(commentLength) == endPos) {
+          if (pos + @sizeOf(EndOfCentralDirectoryRecord.Struct) + usize(commentLength) == endPos) {
             return CentralDirectoryInfo{
               .offset = EndOfCentralDirectoryRecord.cdOffset.read(&eocdr),
               .size = EndOfCentralDirectoryRecord.cdSize.read(&eocdr),
@@ -183,8 +188,8 @@ pub fn ScanZip(comptime ReadError: type) type {
 
     pub fn walk(
       walkState: *ZipWalkState,
-      stream: *InStream(ReadError),
-      seekable: *Seekable,
+      stream: *MyInStream,
+      seekable: *MySeekableStream,
     ) !?*ZipWalkFile {
       if (walkState.relPos >= walkState.cdInfo.size) {
         walkState.file = null;
@@ -193,8 +198,8 @@ pub fn ScanZip(comptime ReadError: type) type {
 
       var fileHeader: CentralDirectoryFileHeader.Struct = undefined;
 
-      var pos = std.math.cast(i64, walkState.cdInfo.offset + walkState.relPos) catch return Error.Corrupt;
-      _ = try seekable.seek(pos, Seekable.Whence.Start);
+      var pos = walkState.cdInfo.offset + walkState.relPos;
+      try seekable.seekTo(pos);
       try readOneNoEof(ReadError, stream, CentralDirectoryFileHeader.Struct, &fileHeader);
 
       const signature = CentralDirectoryFileHeader.signature.read(&fileHeader);
@@ -208,8 +213,8 @@ pub fn ScanZip(comptime ReadError: type) type {
       const extraFieldLength = CentralDirectoryFileHeader.extraFieldLength.read(&fileHeader);
       const fileCommentLength = CentralDirectoryFileHeader.fileCommentLength.read(&fileHeader);
 
-      pos = std.math.cast(i64, walkState.cdInfo.offset + walkState.relPos + @sizeOf(CentralDirectoryFileHeader.Struct)) catch return Error.Corrupt;
-      _ = try seekable.seek(pos, Seekable.Whence.Start);
+      pos = walkState.cdInfo.offset + walkState.relPos + @sizeOf(CentralDirectoryFileHeader.Struct);
+      try seekable.seekTo(pos);
 
       // FIXME - error checking or something?
       const n = try stream.read(walkState.filenameBuf[0..fileNameLength]);
@@ -238,8 +243,8 @@ pub fn ScanZip(comptime ReadError: type) type {
 
     pub fn find_file_in_directory(
       cdInfo: CentralDirectoryInfo,
-      stream: *InStream(ReadError),
-      seekable: *Seekable,
+      stream: *MyInStream,
+      seekable: *MySeekableStream,
       filename: []const u8,
     ) !?ZipFileInfo {
       var walkState: ZipWalkState = undefined;
@@ -260,8 +265,8 @@ pub fn ScanZip(comptime ReadError: type) type {
     }
 
     pub fn find_file(
-      stream: *InStream(ReadError),
-      seekable: *Seekable,
+      stream: *MyInStream,
+      seekable: *MySeekableStream,
       filename: []const u8,
     ) !?ZipFileInfo {
       const isZipFile = try is_zip_file(stream, seekable);

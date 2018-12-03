@@ -2,8 +2,6 @@ const std = @import("std");
 const File = std.os.File;
 const InStream = std.io.InStream;
 const SingleStackAllocator = @import("../SingleStackAllocator.zig").SingleStackAllocator;
-const Seekable = @import("../traits/Seekable.zig").Seekable;
-const SeekableFileInStream = @import("../FileInStream.zig").SeekableFileInStream;
 const ScanZip = @import("../ScanZip.zig").ScanZip;
 const COMPRESSION_DEFLATE = @import("../ScanZip.zig").COMPRESSION_DEFLATE;
 const ZipWalkState = @import("../ScanZip.zig").ZipWalkState;
@@ -21,13 +19,20 @@ test "ZipTest: locate and decompress a file from a zip archive" {
 
   var file = try File.openRead("src/testdata/zlib1211.zip");
   defer file.close();
-  var sfis = SeekableFileInStream.init(&file);
+  var in_stream = std.os.File.inStream(file);
+  var seekable = std.os.File.seekableStream(file);
 
-  const info = try ScanZip(SeekableFileInStream.ReadError).find_file(&sfis.stream, &sfis.seekable, "zlib-1.2.11/adler32.c");
+  const sz = ScanZip(
+    std.os.File.InStream.Error,
+    std.os.File.SeekError,
+    std.os.File.GetSeekPosError,
+  );
+
+  const info = try sz.find_file(&in_stream.stream, &seekable.stream, "zlib-1.2.11/adler32.c");
 
   if (info) |fileInfo| {
-    const pos = std.math.cast(i64, fileInfo.offset) catch unreachable;
-    _ = try sfis.seekable.seek(pos, Seekable.Whence.Start);
+    const pos = std.math.cast(usize, fileInfo.offset) catch unreachable;
+    try seekable.stream.seekTo(pos);
 
     std.debug.assert(fileInfo.compressionMethod == COMPRESSION_DEFLATE);
     std.debug.assert(fileInfo.uncompressedSize == uncompressedData.len);
@@ -35,7 +40,7 @@ test "ZipTest: locate and decompress a file from a zip archive" {
     var inflater = Inflater.init(allocator, -15);
     defer inflater.deinit();
     var inflateBuf: [256]u8 = undefined;
-    var iis = InflateInStream(SeekableFileInStream.ReadError).init(&inflater, &sfis.stream, inflateBuf[0..]);
+    var iis = InflateInStream(std.os.File.InStream.Error).init(&inflater, &in_stream.stream, inflateBuf[0..]);
     defer iis.deinit();
 
     var index: usize = 0;
@@ -56,19 +61,24 @@ test "ZipTest: locate and decompress a file from a zip archive" {
 test "ZipTest: count files inside a zip archive" {
   var file = try File.openRead("src/testdata/zlib1211.zip");
   defer file.close();
-  var sfis = SeekableFileInStream.init(&file);
+  var in_stream = std.os.File.inStream(file);
+  var seekable = std.os.File.seekableStream(file);
 
-  const sz = ScanZip(SeekableFileInStream.ReadError);
+  const sz = ScanZip(
+    std.os.File.InStream.Error,
+    std.os.File.SeekError,
+    std.os.File.GetSeekPosError,
+  );
 
-  const isZipFile = try sz.is_zip_file(&sfis.stream, &sfis.seekable);
+  const isZipFile = try sz.is_zip_file(&in_stream.stream, &seekable.stream);
   std.debug.assert(isZipFile);
-  const cdInfo = try sz.find_central_directory(&sfis.stream, &sfis.seekable);
+  const cdInfo = try sz.find_central_directory(&in_stream.stream, &seekable.stream);
   var walkState: ZipWalkState = undefined;
   var filenameBuf: [260]u8 = undefined;
   sz.walkInit(cdInfo, &walkState, filenameBuf[0..]);
 
   var count: usize = 0;
-  while (try sz.walk(&walkState, &sfis.stream, &sfis.seekable)) |f| {
+  while (try sz.walk(&walkState, &in_stream.stream, &seekable.stream)) |f| {
     count += 1;
     if (count > 1000) {
       unreachable;

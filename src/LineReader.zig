@@ -51,11 +51,7 @@ pub fn LineReader(comptime OutStreamError: type) type {
 test "LineReader: reads lines and fails upon EOF" {
   // test the `read_line_from_stream` function directly to avoid stdin
 
-  // note that by importing these files, their tests will be run too, kind of
-  // as prerequisites - nice!
-  const MemoryInStream = @import("MemoryInStream.zig").MemoryInStream;
-
-  var in_stream = MemoryInStream.init("First line\nSecond line\n\nUnterminated line");
+  var in_stream = std.io.SliceInStream.init("First line\nSecond line\n\nUnterminated line");
 
   var out_buf: [100]u8 = undefined;
   var mos = std.io.SliceOutStream.init(out_buf[0..]);
@@ -63,22 +59,22 @@ test "LineReader: reads lines and fails upon EOF" {
   const line_reader = LineReader(std.io.SliceOutStream.Error);
 
   mos.reset();
-  try line_reader.read_line_from_stream(MemoryInStream.ReadError, &in_stream.stream, &mos.stream);
+  try line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream);
   std.debug.assert(std.mem.eql(u8, mos.getWritten(), "First line"));
 
   mos.reset();
-  try line_reader.read_line_from_stream(MemoryInStream.ReadError, &in_stream.stream, &mos.stream);
+  try line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream);
   std.debug.assert(std.mem.eql(u8, mos.getWritten(), "Second line"));
 
   mos.reset();
-  try line_reader.read_line_from_stream(MemoryInStream.ReadError, &in_stream.stream, &mos.stream);
+  try line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream);
   std.debug.assert(std.mem.eql(u8, mos.getWritten(), ""));
 
   // current behaviour is to throw an error when a read fails (e.g. end of
   // file). not sure if this is ideal
   var endOfFile = false;
   mos.reset();
-  line_reader.read_line_from_stream(MemoryInStream.ReadError, &in_stream.stream, &mos.stream) catch |err| switch (err) {
+  line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream) catch |err| switch (err) {
     error.EndOfFile => endOfFile = true,
     else => {},
   };
@@ -87,9 +83,7 @@ test "LineReader: reads lines and fails upon EOF" {
 }
 
 test "LineReader: keeps consuming till EOL even if write fails" {
-  const MemoryInStream = @import("MemoryInStream.zig").MemoryInStream;
-
-  var in_stream = MemoryInStream.init("First line is pretty long\nSecond\n");
+  var in_stream = std.io.SliceInStream.init("First line is pretty long\nSecond\n");
 
   var out_buf: [12]u8 = undefined;
   var mos = std.io.SliceOutStream.init(out_buf[0..]);
@@ -98,7 +92,7 @@ test "LineReader: keeps consuming till EOL even if write fails" {
 
   var outOfSpace = false;
   mos.reset();
-  line_reader.read_line_from_stream(MemoryInStream.ReadError, &in_stream.stream, &mos.stream) catch |err| switch (err) {
+  line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream) catch |err| switch (err) {
     error.OutOfSpace => outOfSpace = true,
     else => {},
   };
@@ -106,7 +100,7 @@ test "LineReader: keeps consuming till EOL even if write fails" {
   std.debug.assert(std.mem.eql(u8, mos.getWritten(), "First line i"));
 
   mos.reset();
-  try line_reader.read_line_from_stream(MemoryInStream.ReadError, &in_stream.stream, &mos.stream);
+  try line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream);
   std.debug.assert(std.mem.eql(u8, mos.getWritten(), "Second"));
 }
 

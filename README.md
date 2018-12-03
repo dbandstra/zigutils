@@ -1,7 +1,7 @@
 # Zig utils
 [![Build Status](https://travis-ci.org/dbandstra/zigutils.svg?branch=master)](https://travis-ci.org/dbandstra/zigutils)
 
-Some [Zig](https://github.com/ziglang/zig) functions, nothing finished or polished.
+Some [Zig](https://github.com/ziglang/zig) functions, nothing finished or polished. (Things that become stable and useful will probably be moved out of this repo.)
 
 ## Usage
 
@@ -12,9 +12,6 @@ Some [Zig](https://github.com/ziglang/zig) functions, nothing finished or polish
 
 ### ArrayListOutStream
 Writes data to a provided ArrayList(u8). Implements `OutStream`. Basically an inefficient example of an OutStream that doesn't have to worry about buffer sizes.
-
-### FileInStream
-Like the FileInStream from std, but also implements `Seekable`.
 
 ### LoadTga
 Load a TGA image from a source `InStream`. So far supports loading 16, 24 and 32 bit images, compressed or uncompressed. Not supported yet: greyscale and colormapped images.
@@ -30,15 +27,6 @@ Replacement for `read_line` from std. The line is written to an `OutStream`. If 
 
 ### ScanZip
 Iterate through files in a zip archive (provided via source `InStream`+`Seekable`). Returns offset and size of files. See ZipTest.zig, which uses ScanZip to find a file in an archive, then InflateInStream to load it.
-
-### Seekable
-Trait interface with the following methods: seekForward, seekTo, getPos, getEndPos.
-
-### MemoryInStream
-Reads data from an in-memory byte slice. Implements `InStream` and `Seekable`.
-
-### MemoryOutStream
-Writes data to a provided byte slice. Implements `OutStream`.
 
 ### WritePpm
 Save an image in the very simple PPM format (useful for tests).

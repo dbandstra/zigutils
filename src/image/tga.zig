@@ -1,6 +1,5 @@
 const builtin = @import("builtin");
 const std = @import("std");
-const Seekable = @import("../traits/Seekable.zig").Seekable;
 const readOneNoEof = @import("../util.zig").readOneNoEof;
 const image = @import("image.zig");
 
@@ -40,7 +39,14 @@ pub fn tgaBestStoreFormat(tgaInfo: TgaInfo) image.Format {
   }
 }
 
-pub fn LoadTga(comptime ReadError: type) type {
+pub fn LoadTga(
+  comptime ReadError: type,
+  comptime SeekError: type,
+  comptime GetSeekPosError: type,
+) type {
+  const MyInStream = std.io.InStream(ReadError);
+  const MySeekableStream = std.io.SeekableStream(SeekError, GetSeekPosError);
+
   return struct{
     const Self = @This();
 
@@ -51,13 +57,13 @@ pub fn LoadTga(comptime ReadError: type) type {
 
     const LoadError =
       ReadError ||
-      Seekable.Error ||
+      SeekError ||
       error{EndOfStream} || // returned by InStream::readByte;
       error{Corrupt};
 
     pub fn preload(
-      stream: *std.io.InStream(ReadError),
-      seekable: *Seekable,
+      stream: *MyInStream,
+      seekable: *MySeekableStream,
     ) PreloadError!TgaInfo {
       const id_length = try stream.readByte();
       const colormap_type = try stream.readByte();
@@ -132,14 +138,14 @@ pub fn LoadTga(comptime ReadError: type) type {
     }
 
     pub fn load(
-      stream: *std.io.InStream(ReadError),
-      seekable: *Seekable,
+      stream: *MyInStream,
+      seekable: *MySeekableStream,
       tgaInfo: TgaInfo,
       img: *image.Image,
     ) LoadError!void {
       std.debug.assert(tgaInfo.width == img.info.width and tgaInfo.height == img.info.height);
 
-      _ = try seekable.seek(TGA_HEADER_SIZE + tgaInfo.id_length, Seekable.Whence.Start);
+      try seekable.seekTo(TGA_HEADER_SIZE + tgaInfo.id_length);
 
       switch (tgaInfo.image_type) {
         else => unreachable,

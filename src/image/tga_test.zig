@@ -1,7 +1,7 @@
 const std = @import("std");
 const SingleStackAllocator = @import("../SingleStackAllocator.zig").SingleStackAllocator;
 const ArrayListOutStream = @import("../ArrayListOutStream.zig").ArrayListOutStream;
-const MemoryInStream = @import("../MemoryInStream.zig").MemoryInStream;
+const my_io = @import("../SliceStream.zig");
 const image = @import("image.zig");
 const WriteRaw = @import("raw.zig").WriteRaw;
 const RawFormat = @import("raw.zig").RawFormat;
@@ -116,10 +116,17 @@ fn testLoadTga(
   const mark = ssa.stack.get_mark();
   defer ssa.stack.free_to_mark(mark);
 
-  var source = MemoryInStream.init(@embedFile(tgaFilename));
+  var swc = my_io.SliceWithCursor.init(@embedFile(tgaFilename));
+  var in_stream = my_io.SliceInStream2.init(&swc);
+  var seekable = my_io.SliceSeekableStream.init(&swc);
 
   // load tga
-  const tgaInfo = try LoadTga(MemoryInStream.ReadError).preload(&source.stream, &source.seekable);
+  const LoadTgaType = LoadTga(
+    my_io.SliceInStream2.Error,
+    my_io.SliceSeekableStream.SeekError,
+    my_io.SliceSeekableStream.GetSeekPosError,
+  );
+  const tgaInfo = try LoadTgaType.preload(&in_stream.stream, &seekable.stream);
   std.debug.assert(tgaInfo.image_type == params.expectedImageType);
   std.debug.assert(tgaInfo.pixel_size == params.expectedPixelSize);
   std.debug.assert(tgaInfo.attr_bits == params.expectedAttrBits);
@@ -129,7 +136,7 @@ fn testLoadTga(
     .format = tgaBestStoreFormat(tgaInfo),
   });
   defer image.destroyImage(allocator, img);
-  try LoadTga(MemoryInStream.ReadError).load(&source.stream, &source.seekable, tgaInfo, img);
+  try LoadTgaType.load(&in_stream.stream, &seekable.stream, tgaInfo, img);
 
   // write image in raw format and compare it the copy in testdata
   var arrayList = std.ArrayList(u8).init(allocator);
