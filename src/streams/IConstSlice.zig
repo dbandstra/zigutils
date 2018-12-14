@@ -75,3 +75,66 @@ pub const IConstSlice = struct {
     return self.pos;
   }
 };
+
+test "IConstSlice: source buffer smaller than read buffer" {
+  var source = IConstSlice.init("Hello world");
+
+  var dest_buf: [100]u8 = undefined;
+
+  // unfortunately, you have to `try`, even though this function never throws
+  const br0 = try source.read(dest_buf[0..]);
+  std.debug.assert(std.mem.eql(u8, dest_buf[0..br0], "Hello world"));
+}
+
+test "IConstSlice: source buffer longer than read buffer" {
+  var source = IConstSlice.init("Between 15 and 20.");
+
+  var dest_buf: [5]u8 = undefined;
+
+  const br0 = try source.read(dest_buf[0..]);
+  std.debug.assert(std.mem.eql(u8, dest_buf[0..br0], "Betwe"));
+
+  const br1 = try source.read(dest_buf[0..]);
+  std.debug.assert(std.mem.eql(u8, dest_buf[0..br1], "en 15"));
+
+  const br2 = try source.read(dest_buf[0..]);
+  std.debug.assert(std.mem.eql(u8, dest_buf[0..br2], " and "));
+
+  const br3 = try source.read(dest_buf[0..]);
+  std.debug.assert(std.mem.eql(u8, dest_buf[0..br3], "20."));
+
+  const br4 = try source.read(dest_buf[0..]);
+  std.debug.assert(br4 == 0);
+}
+
+test "IConstSlice: seeking around" {
+  var source = IConstSlice.init("This is a decently long sentence.");
+
+  var dest_buf: [5]u8 = undefined;
+
+  const br0 = try source.read(dest_buf[0..]);
+  std.debug.assert(std.mem.eql(u8, dest_buf[0..br0], "This "));
+
+  try source.seekForward(3);
+  const br1 = try source.read(dest_buf[0..]);
+  std.debug.assert(std.mem.eql(u8, dest_buf[0..br1], "a dec"));
+
+  try source.seekForward(-2);
+  const br2 = try source.read(dest_buf[0..]);
+  std.debug.assert(std.mem.eql(u8, dest_buf[0..br2], "ecent"));
+
+  try source.seekForward(0);
+  const cur_pos = try source.getPos();
+  std.debug.assert(cur_pos == 16);
+
+  try source.seekTo(1);
+  const br3 = try source.read(dest_buf[0..]);
+  std.debug.assert(std.mem.eql(u8, dest_buf[0..br3], "his i"));
+
+  try source.seekTo(source.slice.len - 3);
+  const br4 = try source.read(dest_buf[0..]);
+  std.debug.assert(std.mem.eql(u8, dest_buf[0..br4], "ce."));
+
+  std.debug.assertError(source.seekTo(999), error.SliceSeekOutOfBounds);
+  std.debug.assertError(source.seekForward(-999), error.SliceSeekOutOfBounds);
+}
