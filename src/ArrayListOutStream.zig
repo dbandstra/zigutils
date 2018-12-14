@@ -1,5 +1,6 @@
 const std = @import("std");
-const ArrayList = std.ArrayList;
+
+const OutStream = @import("streams/OutStream.zig").OutStream;
 
 //
 // creates an OutStream that writes to an ArrayList(u8).
@@ -7,22 +8,21 @@ const ArrayList = std.ArrayList;
 //
 
 pub const ArrayListOutStream = struct{
-  array_list: *ArrayList(u8),
-  stream: Stream,
-
   pub const Error = std.mem.Allocator.Error; // this is what ArrayList::appendSlice can throw
-  pub const Stream = std.io.OutStream(Error);
 
-  pub fn init(array_list: *ArrayList(u8)) ArrayListOutStream {
+  array_list: *std.ArrayList(u8),
+
+  pub fn init(array_list: *std.ArrayList(u8)) ArrayListOutStream {
     return ArrayListOutStream{
       .array_list = array_list,
-      .stream = Stream{ .writeFn = writeFn },
     };
   }
 
-  fn writeFn(out_stream: *Stream, bytes: []const u8) !void {
-    const self = @fieldParentPtr(ArrayListOutStream, "stream", out_stream);
+  pub fn outStream(self: *ArrayListOutStream) OutStream(Error) {
+    return OutStream(Error).init(self);
+  }
 
+  pub fn write(self: *ArrayListOutStream, bytes: []const u8) Error!void {
     try self.array_list.appendSlice(bytes);
   }
 };
@@ -34,12 +34,13 @@ test "ArrayListOutStream" {
   const mark = ssa.stack.get_mark();
   defer ssa.stack.free_to_mark(mark);
 
-  var array_list = ArrayList(u8).init(allocator);
+  var array_list = std.ArrayList(u8).init(allocator);
   defer array_list.deinit();
 
   var alos = ArrayListOutStream.init(&array_list);
+  var out_stream = alos.outStream();
 
-  try alos.stream.print("This is pretty nice, no buffer limit.");
+  try out_stream.print("This is pretty nice, no buffer limit.");
 
   std.debug.assert(std.mem.eql(u8, array_list.toSlice(), "This is pretty nice, no buffer limit."));
 }

@@ -145,7 +145,7 @@ fn testLoadTga(
   defer arrayList.deinit();
   var alos = ArrayListOutStream.init(&arrayList);
 
-  try WriteRaw(ArrayListOutStream.Error).write(img, &alos.stream, params.rawFormat);
+  try WriteRaw(ArrayListOutStream.Error).write(img, alos.outStream(), params.rawFormat);
 
   // compare raw data. as for the tolerance variable: when we load a 16-bit
   // image, we upsample it to 24-bit. there are a few ways you can do the

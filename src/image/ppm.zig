@@ -1,8 +1,10 @@
 const std = @import("std");
 
+const OutStream = @import("../streams/OutStream.zig").OutStream;
+
 pub fn WritePpm(comptime WriteError: type) type {
   return struct{
-    pub fn write(image: *const Image, stream: *std.io.OutStream(WriteError)) !void {
+    pub fn write(image: *const Image, stream: *OutStream(WriteError)) !void {
       try stream.print("P3\n");
       try stream.print("{} {}\n", image.width, image.height);
       try stream.print("255\n");
