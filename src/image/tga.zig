@@ -1,7 +1,11 @@
 const builtin = @import("builtin");
 const std = @import("std");
+
 const readOneNoEof = @import("../util.zig").readOneNoEof;
 const image = @import("image.zig");
+const InStream = @import("../streams/InStream.zig").InStream;
+const SeekableStream = @import("../streams/SeekableStream.zig").SeekableStream;
+const ISlice = @import("../streams/ISlice.zig").ISlice;
 
 // resources:
 // https://en.wikipedia.org/wiki/Truevision_TGA
@@ -44,8 +48,8 @@ pub fn LoadTga(
   comptime SeekError: type,
   comptime GetSeekPosError: type,
 ) type {
-  const MyInStream = std.io.InStream(ReadError);
-  const MySeekableStream = std.io.SeekableStream(SeekError, GetSeekPosError);
+  const MyInStream = InStream(ReadError);
+  const MySeekableStream = SeekableStream(SeekError, GetSeekPosError);
 
   return struct{
     const Self = @This();
@@ -62,8 +66,8 @@ pub fn LoadTga(
       error{Corrupt};
 
     pub fn preload(
-      stream: *MyInStream,
-      seekable: *MySeekableStream,
+      stream: MyInStream,
+      seekable: MySeekableStream,
     ) PreloadError!TgaInfo {
       const id_length = try stream.readByte();
       const colormap_type = try stream.readByte();
@@ -138,8 +142,8 @@ pub fn LoadTga(
     }
 
     pub fn load(
-      stream: *MyInStream,
-      seekable: *MySeekableStream,
+      stream: MyInStream,
+      seekable: MySeekableStream,
       tgaInfo: TgaInfo,
       img: *image.Image,
     ) LoadError!void {
@@ -153,7 +157,7 @@ pub fn LoadTga(
           const compressed = tgaInfo.image_type == 10;
 
           const num_pixels = img.info.width * img.info.height;
-          var dest = std.io.SliceOutStream.init(img.pixels);
+          var dest = ISlice.init(img.pixels);
 
           var i: u32 = 0;
 
@@ -200,7 +204,7 @@ pub fn LoadTga(
       }
     }
 
-    fn readPixel(pixelSize: u8, stream: *std.io.InStream(ReadError)) ReadError!image.Pixel {
+    fn readPixel(pixelSize: u8, stream: MyInStream) ReadError!image.Pixel {
       switch (pixelSize) {
         16 => {
           var p: [2]u8 = undefined;
@@ -230,11 +234,11 @@ pub fn LoadTga(
       }
     }
 
-    fn writePixel(storeFormat: image.Format, dest: *std.io.SliceOutStream, pixel: image.Pixel) void {
+    fn writePixel(storeFormat: image.Format, dest: *ISlice, pixel: image.Pixel) void {
       switch (storeFormat) {
         // `catch unreachable` because we allocated the whole buffer at the right size
-        image.Format.RGBA => dest.stream.write([]u8{ pixel.r, pixel.g, pixel.b, pixel.a }) catch unreachable,
-        image.Format.RGB => dest.stream.write([]u8{ pixel.r, pixel.g, pixel.b }) catch unreachable,
+        image.Format.RGBA => dest.write([]u8{ pixel.r, pixel.g, pixel.b, pixel.a }) catch unreachable,
+        image.Format.RGB => dest.write([]u8{ pixel.r, pixel.g, pixel.b }) catch unreachable,
         else => unreachable, // FIXME...
       }
     }

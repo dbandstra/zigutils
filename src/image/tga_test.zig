@@ -1,12 +1,14 @@
 const std = @import("std");
 const SingleStackAllocator = @import("../SingleStackAllocator.zig").SingleStackAllocator;
 const ArrayListOutStream = @import("../ArrayListOutStream.zig").ArrayListOutStream;
-const my_io = @import("../SliceStream.zig");
 const image = @import("image.zig");
 const WriteRaw = @import("raw.zig").WriteRaw;
 const RawFormat = @import("raw.zig").RawFormat;
 const LoadTga = @import("tga.zig").LoadTga;
 const tgaBestStoreFormat = @import("tga.zig").tgaBestStoreFormat;
+const InStream = @import("../streams/InStream.zig").InStream;
+const IConstSlice = @import("../streams/IConstSlice.zig").IConstSlice;
+const SeekableStream = @import("../streams/SeekableStream.zig").SeekableStream;
 
 // TODO:
 // - test top-to-bottom images
@@ -116,17 +118,17 @@ fn testLoadTga(
   const mark = ssa.stack.get_mark();
   defer ssa.stack.free_to_mark(mark);
 
-  var swc = my_io.SliceWithCursor.init(@embedFile(tgaFilename));
-  var in_stream = my_io.SliceInStream2.init(&swc);
-  var seekable = my_io.SliceSeekableStream.init(&swc);
+  var source = IConstSlice.init(@embedFile(tgaFilename));
+  var in_stream = source.inStream();
+  var seekable = source.seekableStream();
 
   // load tga
   const LoadTgaType = LoadTga(
-    my_io.SliceInStream2.Error,
-    my_io.SliceSeekableStream.SeekError,
-    my_io.SliceSeekableStream.GetSeekPosError,
+    IConstSlice.ReadError,
+    IConstSlice.SeekError,
+    IConstSlice.GetSeekPosError,
   );
-  const tgaInfo = try LoadTgaType.preload(&in_stream.stream, &seekable.stream);
+  const tgaInfo = try LoadTgaType.preload(in_stream, seekable);
   std.debug.assert(tgaInfo.image_type == params.expectedImageType);
   std.debug.assert(tgaInfo.pixel_size == params.expectedPixelSize);
   std.debug.assert(tgaInfo.attr_bits == params.expectedAttrBits);
@@ -136,7 +138,7 @@ fn testLoadTga(
     .format = tgaBestStoreFormat(tgaInfo),
   });
   defer image.destroyImage(allocator, img);
-  try LoadTgaType.load(&in_stream.stream, &seekable.stream, tgaInfo, img);
+  try LoadTgaType.load(in_stream, seekable, tgaInfo, img);
 
   // write image in raw format and compare it the copy in testdata
   var arrayList = std.ArrayList(u8).init(allocator);

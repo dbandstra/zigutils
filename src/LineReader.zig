@@ -1,5 +1,10 @@
 const std = @import("std");
 
+const InStream = @import("streams/InStream.zig").InStream;
+const OutStream = @import("streams/OutStream.zig").OutStream;
+
+const FileInStream = @import("streams/FileInStream.zig").FileInStream;
+
 //
 // Read a line from stdin
 //
@@ -7,17 +12,18 @@ const std = @import("std");
 pub fn LineReader(comptime OutStreamError: type) type {
   return struct{
     // TODO - move this out... too specialized
-    pub fn read_line_from_stdin(out_stream: *std.io.OutStream(OutStreamError)) !void {
+    pub fn read_line_from_stdin(out_stream: OutStream(OutStreamError)) !void {
       var stdin = std.io.getStdIn() catch return error.StdInUnavailable;
-      var adapter = std.io.FileInStream.init(&stdin);
-      return read_line_from_stream(std.io.FileInStream.Error, &adapter.stream, out_stream);
+      var file_in_stream = FileInStream.init(stdin);
+      var in_stream = InStream(FileInStream.Error).init(&file_in_stream);
+      return read_line_from_stream(FileInStream.Error, in_stream, out_stream);
     }
 
     // this function is split off so it can be tested
     pub fn read_line_from_stream(
       comptime InStreamError: type,
-      stream: *std.io.InStream(InStreamError),
-      out_stream: *std.io.OutStream(OutStreamError),
+      stream: InStream(InStreamError),
+      out_stream: OutStream(OutStreamError),
     ) !void {
       var failed: ?OutStreamError = null;
 
@@ -49,59 +55,69 @@ pub fn LineReader(comptime OutStreamError: type) type {
 }
 
 test "LineReader: reads lines and fails upon EOF" {
+  const IConstSlice = @import("streams/IConstSlice.zig").IConstSlice;
+  const ISlice = @import("streams/ISlice.zig").ISlice;
+
   // test the `read_line_from_stream` function directly to avoid stdin
 
-  var in_stream = std.io.SliceInStream.init("First line\nSecond line\n\nUnterminated line");
+  var source = IConstSlice.init("First line\nSecond line\n\nUnterminated line");
+  var in_stream = source.inStream();
 
   var out_buf: [100]u8 = undefined;
-  var mos = std.io.SliceOutStream.init(out_buf[0..]);
+  var dest = ISlice.init(out_buf[0..]);
+  var out_stream = dest.outStream();
 
-  const line_reader = LineReader(std.io.SliceOutStream.Error);
+  const line_reader = LineReader(ISlice.WriteError);
 
-  mos.reset();
-  try line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream);
-  std.debug.assert(std.mem.eql(u8, mos.getWritten(), "First line"));
+  dest.reset();
+  try line_reader.read_line_from_stream(IConstSlice.ReadError, in_stream, out_stream);
+  std.debug.assert(std.mem.eql(u8, dest.getWritten(), "First line"));
 
-  mos.reset();
-  try line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream);
-  std.debug.assert(std.mem.eql(u8, mos.getWritten(), "Second line"));
+  dest.reset();
+  try line_reader.read_line_from_stream(IConstSlice.ReadError, in_stream, out_stream);
+  std.debug.assert(std.mem.eql(u8, dest.getWritten(), "Second line"));
 
-  mos.reset();
-  try line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream);
-  std.debug.assert(std.mem.eql(u8, mos.getWritten(), ""));
+  dest.reset();
+  try line_reader.read_line_from_stream(IConstSlice.ReadError, in_stream, out_stream);
+  std.debug.assert(std.mem.eql(u8, dest.getWritten(), ""));
 
   // current behaviour is to throw an error when a read fails (e.g. end of
   // file). not sure if this is ideal
   var endOfFile = false;
-  mos.reset();
-  line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream) catch |err| switch (err) {
+  dest.reset();
+  line_reader.read_line_from_stream(IConstSlice.ReadError, in_stream, out_stream) catch |err| switch (err) {
     error.EndOfFile => endOfFile = true,
     else => {},
   };
   std.debug.assert(endOfFile == true);
-  std.debug.assert(std.mem.eql(u8, mos.getWritten(), "Unterminated line"));
+  std.debug.assert(std.mem.eql(u8, dest.getWritten(), "Unterminated line"));
 }
 
 test "LineReader: keeps consuming till EOL even if write fails" {
-  var in_stream = std.io.SliceInStream.init("First line is pretty long\nSecond\n");
+  const IConstSlice = @import("streams/IConstSlice.zig").IConstSlice;
+  const ISlice = @import("streams/ISlice.zig").ISlice;
+
+  var source = IConstSlice.init("First line is pretty long\nSecond\n");
+  var in_stream = source.inStream();
 
   var out_buf: [12]u8 = undefined;
-  var mos = std.io.SliceOutStream.init(out_buf[0..]);
+  var dest = ISlice.init(out_buf[0..]);
+  var out_stream = dest.outStream();
 
-  const line_reader = LineReader(std.io.SliceOutStream.Error);
+  const line_reader = LineReader(ISlice.WriteError);
 
   var outOfSpace = false;
-  mos.reset();
-  line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream) catch |err| switch (err) {
+  dest.reset();
+  line_reader.read_line_from_stream(IConstSlice.ReadError, in_stream, out_stream) catch |err| switch (err) {
     error.OutOfSpace => outOfSpace = true,
     else => {},
   };
   std.debug.assert(outOfSpace == true);
-  std.debug.assert(std.mem.eql(u8, mos.getWritten(), "First line i"));
+  std.debug.assert(std.mem.eql(u8, dest.getWritten(), "First line i"));
 
-  mos.reset();
-  try line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream);
-  std.debug.assert(std.mem.eql(u8, mos.getWritten(), "Second"));
+  dest.reset();
+  try line_reader.read_line_from_stream(IConstSlice.ReadError, in_stream, out_stream);
+  std.debug.assert(std.mem.eql(u8, dest.getWritten(), "Second"));
 }
 
 // TODO - test line ending handling, i guess
