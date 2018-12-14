@@ -3,7 +3,7 @@ const std = @import("std");
 const InStream = @import("streams/InStream.zig").InStream;
 const OutStream = @import("streams/OutStream.zig").OutStream;
 
-const FileInStream = @import("streams/FileInStream.zig").FileInStream;
+const IFile = @import("streams/IFile.zig").IFile;
 
 //
 // Read a line from stdin
@@ -14,9 +14,9 @@ pub fn LineReader(comptime OutStreamError: type) type {
     // TODO - move this out... too specialized
     pub fn read_line_from_stdin(out_stream: OutStream(OutStreamError)) !void {
       var stdin = std.io.getStdIn() catch return error.StdInUnavailable;
-      var file_in_stream = FileInStream.init(stdin);
-      var in_stream = InStream(FileInStream.Error).init(&file_in_stream);
-      return read_line_from_stream(FileInStream.Error, in_stream, out_stream);
+      var ifile = IFile.init(stdin);
+      var in_stream = ifile.inStream();
+      return read_line_from_stream(std.os.File.ReadError, in_stream, out_stream);
     }
 
     // this function is split off so it can be tested

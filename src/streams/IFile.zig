@@ -1,10 +1,24 @@
-// single object implementing all the traits...
-
 const std = @import("std");
 
 const InStream = @import("InStream.zig").InStream;
 const OutStream = @import("OutStream.zig").OutStream;
 const SeekableStream = @import("SeekableStream.zig").SeekableStream;
+
+// to be put directly into std.os.File eventually...
+// problem: std.os.File's functions (read, write, etc) don't take self as a
+// pointer. so the vtable code chokes on it
+
+// pub fn inStreamFromFile(file: *std.os.File) InStream(std.os.File.ReadError) {
+//   return InStream(std.os.File.ReadError).init(file);
+// }
+
+// pub fn outStreamFromFile(file: *std.os.File) InStream(std.os.File.WriteError) {
+//   return OutStream(std.os.File.WriteError).init(file);
+// }
+
+// pub fn seekableStreamFromFile(file: *std.os.File) SeekableStream(std.os.File.SeekError, std.os.File.GetSeekPosError) {
+//   return SeekableStream(std.os.File.SeekError, std.os.File.GetSeekPosError).init(file);
+// }
 
 pub const IFile = struct {
   pub const ReadError = std.os.File.ReadError;

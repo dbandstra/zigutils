@@ -1,5 +1,3 @@
-// single object implementing all the traits...
-
 const std = @import("std");
 
 const OutStream = @import("OutStream.zig").OutStream;
