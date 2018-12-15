@@ -1,10 +1,12 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
+const InStream = @import("streams/InStream.zig").InStream;
+
 // read from the instream, expecting to find the given string.
 // return true if it was found.
 // FIXME - if i use `Error!bool` return type, i get a weird compile error
-pub fn requireStringInStream(comptime Error: type, instream: *std.io.InStream(Error), string: []const u8) !bool {
+pub fn requireStringInStream(comptime Error: type, instream: InStream(Error), string: []const u8) !bool {
   for (string) |expectedByte| {
     const actualByte = try instream.readByte();
 
@@ -27,12 +29,12 @@ pub fn swapSlices(comptime T: type, a: []T, b: []T) void {
 }
 
 // copied from macho.zig
-pub fn readNoEof(comptime ReadError: type, in: *std.io.InStream(ReadError), comptime T: type, result: []T) !void {
+pub fn readNoEof(comptime ReadError: type, in: InStream(ReadError), comptime T: type, result: []T) !void {
   return in.readNoEof(@sliceToBytes(result));
 }
 
 // copied from macho.zig
-pub fn readOneNoEof(comptime ReadError: type, in: *std.io.InStream(ReadError), comptime T: type, result: *T) !void {
+pub fn readOneNoEof(comptime ReadError: type, in: InStream(ReadError), comptime T: type, result: *T) !void {
   return readNoEof(ReadError, in, T, (*[1]T)(result)[0..]);
 }
 

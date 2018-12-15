@@ -5,6 +5,9 @@
 
 const builtin = @import("builtin");
 const std = @import("std");
+
+const InStream = @import("streams/InStream.zig").InStream;
+const SeekableStream = @import("streams/SeekableStream.zig").SeekableStream;
 const readOneNoEof = @import("util.zig").readOneNoEof;
 const fieldMeta = @import("util.zig").fieldMeta;
 const requireStringInStream = @import("util.zig").requireStringInStream;
@@ -108,8 +111,8 @@ pub fn ScanZip(
   comptime SeekError: type,
   comptime GetSeekPosError: type,
 ) type {
-  const MyInStream = std.io.InStream(ReadError);
-  const MySeekableStream = std.io.SeekableStream(SeekError, GetSeekPosError);
+  const MyInStream = InStream(ReadError);
+  const MySeekableStream = SeekableStream(SeekError, GetSeekPosError);
 
   return struct{
     pub const Error = error{
@@ -120,8 +123,8 @@ pub fn ScanZip(
 
     // try to decide if the file is actually a zip file. this could be improved
     pub fn is_zip_file(
-      stream: *MyInStream,
-      seekable: *MySeekableStream,
+      stream: MyInStream,
+      seekable: MySeekableStream,
     ) !bool {
       try seekable.seekTo(0);
 
@@ -137,8 +140,8 @@ pub fn ScanZip(
     // assume the seek position is undefined after calling this function.
     // TODO - extremely inefficient, optimize this function!
     pub fn find_central_directory(
-      stream: *MyInStream,
-      seekable: *MySeekableStream,
+      stream: MyInStream,
+      seekable: MySeekableStream,
     ) !CentralDirectoryInfo {
       const endPos = try seekable.getEndPos();
 
@@ -188,8 +191,8 @@ pub fn ScanZip(
 
     pub fn walk(
       walkState: *ZipWalkState,
-      stream: *MyInStream,
-      seekable: *MySeekableStream,
+      stream: MyInStream,
+      seekable: MySeekableStream,
     ) !?*ZipWalkFile {
       if (walkState.relPos >= walkState.cdInfo.size) {
         walkState.file = null;
@@ -243,8 +246,8 @@ pub fn ScanZip(
 
     pub fn find_file_in_directory(
       cdInfo: CentralDirectoryInfo,
-      stream: *MyInStream,
-      seekable: *MySeekableStream,
+      stream: MyInStream,
+      seekable: MySeekableStream,
       filename: []const u8,
     ) !?ZipFileInfo {
       var walkState: ZipWalkState = undefined;
@@ -265,8 +268,8 @@ pub fn ScanZip(
     }
 
     pub fn find_file(
-      stream: *MyInStream,
-      seekable: *MySeekableStream,
+      stream: MyInStream,
+      seekable: MySeekableStream,
       filename: []const u8,
     ) !?ZipFileInfo {
       const isZipFile = try is_zip_file(stream, seekable);

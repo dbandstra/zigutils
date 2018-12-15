@@ -67,6 +67,6 @@ pub const IFile = struct {
   }
 
   pub fn getPos(self: *IFile) GetSeekPosError!usize {
-    return self.file.getPos(self);
+    return self.file.getPos();
   }
 };

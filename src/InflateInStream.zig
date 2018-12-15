@@ -1,4 +1,6 @@
 const std = @import("std");
+
+const InStream = @import("streams/InStream.zig").InStream;
 const Inflater = @import("Inflater.zig").Inflater;
 const OwnerId = @import("OwnerId.zig").OwnerId;
 
@@ -7,43 +9,37 @@ const OwnerId = @import("OwnerId.zig").OwnerId;
 
 pub fn InflateInStream(comptime SourceError: type) type {
   return struct{
-    const Self = @This();
-
     pub const Error = SourceError || Inflater.Error;
 
-    pub const ImplStream = std.io.InStream(Error);
-
-    // trait implementations
-    stream: ImplStream,
-
-    // parameters
     inflater: *Inflater,
-    source: *std.io.InStream(SourceError),
+    source: InStream(SourceError),
     compressed_buffer: []u8,
 
     owner_id: OwnerId,
 
-    pub fn init(inflater: *Inflater, source: *std.io.InStream(SourceError), buffer: []u8) Self {
+    pub fn init(inflater: *Inflater, source: InStream(SourceError), buffer: []u8) @This() {
       const owner_id = OwnerId.generate();
 
       inflater.attachOwner(owner_id);
 
-      return Self{
+      return @This(){
         .source = source,
         .inflater = inflater,
         .compressed_buffer = buffer,
         .owner_id = owner_id,
-        .stream = ImplStream{
-          .readFn = readFn,
-        },
       };
     }
 
-    pub fn deinit(self: *InflateInStream(SourceError)) void {
+    pub fn deinit(self: *@This()) void {
       self.inflater.detachOwner(self.owner_id);
     }
 
-    fn maybeRefillInput(self: *InflateInStream(SourceError)) SourceError!void {
+    pub fn inStream(self: *@This()) InStream(Error) {
+      return InStream(Error).init(self);
+    }
+
+    // private
+    fn maybeRefillInput(self: *@This()) SourceError!void {
       if (self.inflater.isInputExhausted()) {
         const num_bytes = try self.source.read(self.compressed_buffer);
 
@@ -51,9 +47,7 @@ pub fn InflateInStream(comptime SourceError: type) type {
       }
     }
 
-    fn readFn(in_stream: *ImplStream, buffer: []u8) Error!usize {
-      const self = @fieldParentPtr(InflateInStream(SourceError), "stream", in_stream);
-
+    fn read(self: *@This(), buffer: []u8) Error!usize {
       // anticipate footgun (sometimes forget you need two buffers)
       std.debug.assert(buffer.ptr != self.compressed_buffer.ptr);
 
@@ -80,8 +74,11 @@ pub fn InflateInStream(comptime SourceError: type) type {
 }
 
 test "InflateInStream: works on valid input" {
+  const IConstSlice = @import("streams/IConstSlice.zig").IConstSlice;
+  const SingleStackAllocator = @import("SingleStackAllocator.zig").SingleStackAllocator;
+
   var memory: [100 * 1024]u8 = undefined;
-  var ssa = @import("SingleStackAllocator.zig").SingleStackAllocator.init(memory[0..]);
+  var ssa = SingleStackAllocator.init(memory[0..]);
   const allocator = &ssa.stack.allocator;
   const mark = ssa.stack.get_mark();
   defer ssa.stack.free_to_mark(mark);
@@ -89,19 +86,20 @@ test "InflateInStream: works on valid input" {
   const compressedData = @embedFile("testdata/adler32.c-compressed");
   const uncompressedData = @embedFile("testdata/adler32.c");
 
-  var source = std.io.SliceInStream.init(compressedData);
+  var source = IConstSlice.init(compressedData);
+  var source_in_stream = source.inStream();
 
   var inflater = Inflater.init(allocator, -15);
   defer inflater.deinit();
   var inflaterBuf: [256]u8 = undefined;
-  var inflateStream = InflateInStream(std.io.SliceInStream.Error).init(&inflater, &source.stream, inflaterBuf[0..]);
+  var inflateStream = InflateInStream(IConstSlice.ReadError).init(&inflater, source_in_stream, inflaterBuf[0..]);
   defer inflateStream.deinit();
 
   var buffer: [256]u8 = undefined;
   var index: usize = 0;
 
   while (true) {
-    const n = try inflateStream.stream.read(buffer[0..]);
+    const n = try inflateStream.read(buffer[0..]);
     if (n == 0) {
       break;
     }
@@ -113,26 +111,30 @@ test "InflateInStream: works on valid input" {
 }
 
 test "InflateInStream: fails with InvalidStream on bad input" {
+  const IConstSlice = @import("streams/IConstSlice.zig").IConstSlice;
+  const SingleStackAllocator = @import("SingleStackAllocator.zig").SingleStackAllocator;
+
   var memory: [100 * 1024]u8 = undefined;
-  var ssa = @import("SingleStackAllocator.zig").SingleStackAllocator.init(memory[0..]);
+  var ssa = SingleStackAllocator.init(memory[0..]);
   const allocator = &ssa.stack.allocator;
   const mark = ssa.stack.get_mark();
   defer ssa.stack.free_to_mark(mark);
 
   const uncompressedData = @embedFile("testdata/adler32.c");
 
-  var source = std.io.SliceInStream.init(uncompressedData);
+  var source = IConstSlice.init(uncompressedData);
+  var source_in_stream = source.inStream();
 
   var inflater = Inflater.init(allocator, -15);
   defer inflater.deinit();
   var inflateBuf: [256]u8 = undefined;
-  var inflateStream = InflateInStream(std.io.SliceInStream.Error).init(&inflater, &source.stream, inflateBuf[0..]);
+  var inflateStream = InflateInStream(IConstSlice.ReadError).init(&inflater, source_in_stream, inflateBuf[0..]);
   defer inflateStream.deinit();
 
   var buffer: [256]u8 = undefined;
 
   std.debug.assertError(
-    inflateStream.stream.read(buffer[0..]),
-    InflateInStream(std.io.SliceInStream.Error).Error.InvalidStream,
+    inflateStream.read(buffer[0..]),
+    InflateInStream(IConstSlice.ReadError).Error.InvalidStream,
   );
 }
