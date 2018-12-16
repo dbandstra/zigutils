@@ -68,13 +68,13 @@ pub fn LoadTga(
       const id_length = try stream.readByte();
       const colormap_type = try stream.readByte();
       const image_type = try stream.readByte();
-      const colormap_index = try stream.readIntLe(u16);
-      const colormap_length = try stream.readIntLe(u16);
+      const colormap_index = try stream.readIntLittle(u16);
+      const colormap_length = try stream.readIntLittle(u16);
       const colormap_size = try stream.readByte();
-      const x_origin = try stream.readIntLe(u16);
-      const y_origin = try stream.readIntLe(u16);
-      const width = try stream.readIntLe(u16);
-      const height = try stream.readIntLe(u16);
+      const x_origin = try stream.readIntLittle(u16);
+      const y_origin = try stream.readIntLittle(u16);
+      const width = try stream.readIntLittle(u16);
+      const height = try stream.readIntLittle(u16);
       const pixel_size = try stream.readByte();
       const descriptor = try stream.readByte();
 

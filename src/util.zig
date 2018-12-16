@@ -99,7 +99,7 @@ pub fn fieldMeta(comptime Struct: type, comptime fieldName: []const u8, comptime
       const bytes = @intToPtr([*]u8, @ptrToInt(instance) + offset)[0..fieldSize];
 
       // should be a compile error if type is not an integer. i could add support for other types later
-      return std.mem.readInt(bytes, field.field_type, endian);
+      return std.mem.readIntSlice(field.field_type, bytes, endian);
     }
 
     fn getType() type {
