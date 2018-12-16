@@ -3,6 +3,8 @@ const std = @import("std");
 const InStream = @import("../streams/InStream.zig").InStream;
 const SeekableStream = @import("../streams/SeekableStream.zig").SeekableStream;
 const IFile = @import("../streams/IFile.zig").IFile;
+const IFileInStreamAdapter = @import("../streams/IFile_InStream.zig").IFileInStreamAdapter;
+const IFileSeekableStreamAdapter = @import("../streams/IFile_SeekableStream.zig").IFileSeekableStreamAdapter;
 const SingleStackAllocator = @import("../SingleStackAllocator.zig").SingleStackAllocator;
 const ScanZip = @import("../ScanZip.zig").ScanZip;
 const COMPRESSION_DEFLATE = @import("../ScanZip.zig").COMPRESSION_DEFLATE;
@@ -22,8 +24,10 @@ test "ZipTest: locate and decompress a file from a zip archive" {
   var file = try std.os.File.openRead("src/testdata/zlib1211.zip");
   defer file.close();
   var ifile = IFile.init(file);
-  var in_stream = ifile.inStream();
-  var seekable = ifile.seekableStream();
+  var ifile_in_stream_adapter = IFileInStreamAdapter.init(&ifile);
+  var ifile_seekable_adapter = IFileSeekableStreamAdapter.init(&ifile);
+  var in_stream = ifile_in_stream_adapter.inStream();
+  var seekable = ifile_seekable_adapter.seekableStream();
 
   const info = try ScanZip.find_file(in_stream, seekable, "zlib-1.2.11/adler32.c");
 
@@ -59,8 +63,10 @@ test "ZipTest: count files inside a zip archive" {
   var file = try std.os.File.openRead("src/testdata/zlib1211.zip");
   defer file.close();
   var ifile = IFile.init(file);
-  var in_stream = ifile.inStream();
-  var seekable = ifile.seekableStream();
+  var ifile_in_stream_adapter = IFileInStreamAdapter.init(&ifile);
+  var ifile_seekable_adapter = IFileSeekableStreamAdapter.init(&ifile);
+  var in_stream = ifile_in_stream_adapter.inStream();
+  var seekable = ifile_seekable_adapter.seekableStream();
 
   const isZipFile = try ScanZip.is_zip_file(in_stream, seekable);
   std.debug.assert(isZipFile);
