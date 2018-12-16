@@ -96,6 +96,7 @@ pub const InflateInStream = struct {
 
 test "InflateInStream: works on valid input" {
   const IConstSlice = @import("streams/IConstSlice.zig").IConstSlice;
+  const IConstSliceInStreamAdapter = @import("streams/IConstSlice_InStream.zig").IConstSliceInStreamAdapter;
   const SingleStackAllocator = @import("SingleStackAllocator.zig").SingleStackAllocator;
 
   var memory: [100 * 1024]u8 = undefined;
@@ -108,7 +109,8 @@ test "InflateInStream: works on valid input" {
   const uncompressedData = @embedFile("testdata/adler32.c");
 
   var source = IConstSlice.init(compressedData);
-  var source_in_stream = source.inStream();
+  var source_in_stream_adapter = IConstSliceInStreamAdapter.init(&source);
+  var source_in_stream = source_in_stream_adapter.inStream();
 
   var inflater = Inflater.init(&allocator, -15);
   defer inflater.deinit();
@@ -133,6 +135,7 @@ test "InflateInStream: works on valid input" {
 
 test "InflateInStream: fails with InvalidStream on bad input" {
   const IConstSlice = @import("streams/IConstSlice.zig").IConstSlice;
+  const IConstSliceInStreamAdapter = @import("streams/IConstSlice_InStream.zig").IConstSliceInStreamAdapter;
   const SingleStackAllocator = @import("SingleStackAllocator.zig").SingleStackAllocator;
 
   var memory: [100 * 1024]u8 = undefined;
@@ -144,7 +147,8 @@ test "InflateInStream: fails with InvalidStream on bad input" {
   const uncompressedData = @embedFile("testdata/adler32.c");
 
   var source = IConstSlice.init(uncompressedData);
-  var source_in_stream = source.inStream();
+  var source_in_stream_adapter = IConstSliceInStreamAdapter.init(&source);
+  var source_in_stream = source_in_stream_adapter.inStream();
 
   var inflater = Inflater.init(&allocator, -15);
   defer inflater.deinit();
@@ -162,6 +166,7 @@ test "InflateInStream: fails with InvalidStream on bad input" {
 
 test "InflateInStream: fails with InvalidStream on bad input (but with dynamic dispatch)" {
   const IConstSlice = @import("streams/IConstSlice.zig").IConstSlice;
+  const IConstSliceInStreamAdapter = @import("streams/IConstSlice_InStream.zig").IConstSliceInStreamAdapter;
   const SingleStackAllocator = @import("SingleStackAllocator.zig").SingleStackAllocator;
 
   var memory: [100 * 1024]u8 = undefined;
@@ -173,7 +178,8 @@ test "InflateInStream: fails with InvalidStream on bad input (but with dynamic d
   const uncompressedData = @embedFile("testdata/adler32.c");
 
   var source = IConstSlice.init(uncompressedData);
-  var source_in_stream = source.inStream();
+  var source_in_stream_adapter = IConstSliceInStreamAdapter.init(&source);
+  var source_in_stream = source_in_stream_adapter.inStream();
 
   var inflater = Inflater.init(&allocator, -15);
   defer inflater.deinit();

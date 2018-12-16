@@ -51,12 +51,14 @@ pub const LineReader = struct {
 
 test "LineReader: reads lines and fails upon EOF" {
   const IConstSlice = @import("streams/IConstSlice.zig").IConstSlice;
+  const IConstSliceInStreamAdapter = @import("streams/IConstSlice_InStream.zig").IConstSliceInStreamAdapter;
   const ISlice = @import("streams/ISlice.zig").ISlice;
 
   // test the `read_line_from_stream` function directly to avoid stdin
 
   var source = IConstSlice.init("First line\nSecond line\n\nUnterminated line");
-  var in_stream = source.inStream();
+  var in_stream_adapter = IConstSliceInStreamAdapter.init(&source);
+  var in_stream = in_stream_adapter.inStream();
 
   var out_buf: [100]u8 = undefined;
   var dest = ISlice.init(out_buf[0..]);
@@ -76,22 +78,22 @@ test "LineReader: reads lines and fails upon EOF" {
 
   // current behaviour is to throw an error when a read fails (e.g. end of
   // file). not sure if this is ideal
-  var endOfFile = false;
   dest.reset();
-  LineReader.read_line_from_stream(in_stream, out_stream) catch |err| switch (err) {
-    error.EndOfFile => endOfFile = true,
-    else => {},
-  };
-  std.debug.assert(endOfFile == true);
+  std.debug.assertError(
+    LineReader.read_line_from_stream(in_stream, out_stream),
+    error.EndOfFile,
+  );
   std.debug.assert(std.mem.eql(u8, dest.getWritten(), "Unterminated line"));
 }
 
 test "LineReader: keeps consuming till EOL even if write fails" {
   const IConstSlice = @import("streams/IConstSlice.zig").IConstSlice;
+  const IConstSliceInStreamAdapter = @import("streams/IConstSlice_InStream.zig").IConstSliceInStreamAdapter;
   const ISlice = @import("streams/ISlice.zig").ISlice;
 
   var source = IConstSlice.init("First line is pretty long\nSecond\n");
-  var in_stream = source.inStream();
+  var in_stream_adapter = IConstSliceInStreamAdapter.init(&source);
+  var in_stream = in_stream_adapter.inStream();
 
   var out_buf: [12]u8 = undefined;
   var dest = ISlice.init(out_buf[0..]);

@@ -9,6 +9,8 @@ const LoadTga = @import("tga.zig").LoadTga;
 const tgaBestStoreFormat = @import("tga.zig").tgaBestStoreFormat;
 const InStream = @import("../streams/InStream.zig").InStream;
 const IConstSlice = @import("../streams/IConstSlice.zig").IConstSlice;
+const IConstSliceInStreamAdapter = @import("../streams/IConstSlice_InStream.zig").IConstSliceInStreamAdapter;
+const IConstSliceSeekableStreamAdapter = @import("../streams/IConstSlice_SeekableStream.zig").IConstSliceSeekableStreamAdapter;
 const SeekableStream = @import("../streams/SeekableStream.zig").SeekableStream;
 
 // TODO:
@@ -120,8 +122,10 @@ fn testLoadTga(
   defer ssa.freeToMark(mark);
 
   var source = IConstSlice.init(@embedFile(tgaFilename));
-  var in_stream = source.inStream();
-  var seekable = source.seekableStream();
+  var in_stream_adapter = IConstSliceInStreamAdapter.init(&source);
+  var in_stream = in_stream_adapter.inStream();
+  var seekable_adapter = IConstSliceSeekableStreamAdapter.init(&source);
+  var seekable = seekable_adapter.seekableStream();
 
   // load tga
   const tgaInfo = try LoadTga.preload(in_stream, seekable);

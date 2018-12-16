@@ -1,20 +1,15 @@
 const std = @import("std");
 
-const InStream = @import("InStream.zig").InStream;
-const SeekableStream = @import("SeekableStream.zig").SeekableStream;
-
 pub const IConstSlice = struct {
   pub const SeekError = error{SliceSeekOutOfBounds};
 
   slice: []const u8,
   pos: usize,
-  seek_error: ?SeekError,
 
   pub fn init(slice: []const u8) IConstSlice {
     return IConstSlice{
       .slice = slice,
       .pos = 0,
-      .seek_error = null,
     };
   }
 
@@ -65,68 +60,6 @@ pub const IConstSlice = struct {
 
   pub fn getPos(self: *IConstSlice) usize {
     return self.pos;
-  }
-
-  // InStream
-
-  pub fn inStream(self: *IConstSlice) InStream {
-    const GlobalStorage = struct {
-      const vtable = InStream.VTable{
-        .read = inStreamRead,
-      };
-    };
-    return InStream{
-      .impl = @ptrCast(*c_void, self),
-      .vtable = &GlobalStorage.vtable,
-    };
-  }
-
-  fn inStreamRead(impl: *c_void, dest: []u8) InStream.Error!usize {
-    const self = @ptrCast(*IConstSlice, @alignCast(@alignOf(IConstSlice), impl));
-    return self.read(dest);
-  }
-
-  // SeekableStream
-
-  pub fn seekableStream(self: *IConstSlice) SeekableStream {
-    const GlobalStorage = struct {
-      const vtable = SeekableStream.VTable{
-        .seekTo = seekableSeekTo,
-        .seekForward = seekableSeekForward,
-        .getPos = seekableGetPos,
-        .getEndPos = seekableGetEndPos,
-      };
-    };
-    return SeekableStream{
-      .impl = @ptrCast(*c_void, self),
-      .vtable = &GlobalStorage.vtable,
-    };
-  }
-
-  pub fn seekableSeekTo(impl: *c_void, pos: usize) SeekableStream.SeekError!void {
-    const self = @ptrCast(*IConstSlice, @alignCast(@alignOf(IConstSlice), impl));
-    self.seekTo(pos) catch |err| {
-      self.seek_error = err;
-      return SeekableStream.SeekError.SeekError;
-    };
-  }
-
-  pub fn seekableSeekForward(impl: *c_void, amt: isize) SeekableStream.SeekError!void {
-    const self = @ptrCast(*IConstSlice, @alignCast(@alignOf(IConstSlice), impl));
-    self.seekForward(amt) catch |err| {
-      self.seek_error = err;
-      return SeekableStream.SeekError.SeekError;
-    };
-  }
-
-  pub fn seekableGetEndPos(impl: *c_void) SeekableStream.GetSeekPosError!usize {
-    const self = @ptrCast(*IConstSlice, @alignCast(@alignOf(IConstSlice), impl));
-    return self.getEndPos();
-  }
-
-  pub fn seekableGetPos(impl: *c_void) SeekableStream.GetSeekPosError!usize {
-    const self = @ptrCast(*IConstSlice, @alignCast(@alignOf(IConstSlice), impl));
-    return self.getPos();
   }
 };
 
