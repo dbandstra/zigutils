@@ -11,6 +11,5 @@ comptime {
   _ = @import("src/streams/InStream.zig");
   _ = @import("src/streams/OutStream.zig");
   _ = @import("src/streams/SeekableStream.zig");
-  // _ = @import("src/test/CrashingStackAllocatorTest.zig");
   _ = @import("src/test/ZipTest.zig");
 }

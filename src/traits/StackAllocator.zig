@@ -1,17 +1,35 @@
 const std = @import("std");
-const Allocator = std.mem.Allocator;
 
 pub const StackAllocator = struct{
-  allocator: Allocator,
+  const VTable = struct {
+    getMark: fn (impl: *c_void) usize,
+    freeToMark: fn (impl: *c_void, pos: usize) void,
+  };
 
-  getMarkFn: fn (self: *StackAllocator) usize,
-  freeToMarkFn: fn (self: *StackAllocator, pos: usize) void,
+  vtable: *const VTable,
+  impl: *c_void,
 
-  pub fn get_mark(self: *StackAllocator) usize {
-    return self.getMarkFn(self);
+  pub fn init(impl: var) @This() {
+    const T = @typeOf(impl).Child;
+    return @This(){
+      .vtable = comptime vtable.populate(VTable, T, T),
+      .impl = @ptrCast(*c_void, impl),
+    };
   }
 
-  pub fn free_to_mark(self: *StackAllocator, pos: usize) void {
-    self.freeToMarkFn(self, pos);
+  pub fn initCustom(impl: var, vtable_obj: var) @This() {
+    const T = @typeOf(vtable_obj).Child;
+    return @This(){
+      .vtable = comptime vtable.populate(VTable, T, T),
+      .impl = @ptrCast(*c_void, impl),
+    };
+  }
+
+  pub fn getMark(self: @This()) usize {
+    return self.vtable.getMark(self.impl);
+  }
+
+  pub fn freeToMark(self: @This(), pos: usize) void {
+    self.vtable.freeToMark(self.impl, pos);
   }
 };

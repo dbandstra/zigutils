@@ -1,4 +1,6 @@
 const std = @import("std");
+
+const Allocator = @import("../traits/Allocator.zig").Allocator;
 const swapSlices = @import("../util.zig").swapSlices;
 
 pub const Format = enum{
@@ -38,7 +40,7 @@ pub const Pixel = struct{
   a: u8,
 };
 
-pub fn createImage(allocator: *std.mem.Allocator, info: Info) !*Image {
+pub fn createImage(allocator: Allocator, info: Info) !*Image {
   const pixels = try allocator.alloc(u8, info.width * info.height * Format.getBytesPerPixel(info.format));
 
   var image = try allocator.create(Image{
@@ -49,12 +51,12 @@ pub fn createImage(allocator: *std.mem.Allocator, info: Info) !*Image {
   return image;
 }
 
-pub fn destroyImage(allocator: *std.mem.Allocator, img: *Image) void {
+pub fn destroyImage(allocator: Allocator, img: *Image) void {
   allocator.free(img.pixels);
   allocator.destroy(img);
 }
 
-pub fn createPalette(allocator: *std.mem.Allocator) !*Palette {
+pub fn createPalette(allocator: Allocator) !*Palette {
   const data = try allocator.alloc(u8, 256*3);
 
   var palette = try allocator.create(Palette{
@@ -65,7 +67,7 @@ pub fn createPalette(allocator: *std.mem.Allocator) !*Palette {
   return palette;
 }
 
-pub fn destroyPalette(allocator: *std.mem.Allocator, palette: *Palette) void {
+pub fn destroyPalette(allocator: Allocator, palette: *Palette) void {
   allocator.free(palette.data);
   allocator.destroy(palette);
 }

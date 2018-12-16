@@ -13,9 +13,9 @@ const InflateInStream = @import("../InflateInStream.zig").InflateInStream;
 test "ZipTest: locate and decompress a file from a zip archive" {
   var memory: [100 * 1024]u8 = undefined;
   var ssa = SingleStackAllocator.init(memory[0..]);
-  const allocator = &ssa.stack.allocator;
-  const mark = ssa.stack.get_mark();
-  defer ssa.stack.free_to_mark(mark);
+  var allocator = ssa.allocator();
+  const mark = ssa.getMark();
+  defer ssa.freeToMark(mark);
 
   const uncompressedData = @embedFile("../testdata/adler32.c");
 
@@ -40,7 +40,7 @@ test "ZipTest: locate and decompress a file from a zip archive" {
     std.debug.assert(fileInfo.compressionMethod == COMPRESSION_DEFLATE);
     std.debug.assert(fileInfo.uncompressedSize == uncompressedData.len);
 
-    var inflater = Inflater.init(allocator, -15);
+    var inflater = Inflater.init(&allocator, -15);
     defer inflater.deinit();
     var inflateBuf: [256]u8 = undefined;
     var iis = InflateInStream(std.os.File.ReadError).init(&inflater, in_stream, inflateBuf[0..]);

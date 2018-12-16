@@ -1,6 +1,7 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
+const Allocator = @import("traits/Allocator.zig").Allocator;
 const InStream = @import("streams/InStream.zig").InStream;
 
 // read from the instream, expecting to find the given string.
@@ -44,7 +45,7 @@ pub fn clearStruct(comptime T: type, value: *T) void {
   std.mem.set(u8, memory, 0);
 }
 
-pub fn allocCPointer(allocator: *std.mem.Allocator, n: usize) ?*c_void {
+pub fn allocCPointer(allocator: Allocator, n: usize) ?*c_void {
   if (n == 0) {
     return @intToPtr(*c_void, 0);
   }
@@ -62,7 +63,7 @@ pub fn allocCPointer(allocator: *std.mem.Allocator, n: usize) ?*c_void {
   return dataPtr;
 }
 
-pub fn freeCPointer(allocator: *std.mem.Allocator, address: ?*c_void) void {
+pub fn freeCPointer(allocator: Allocator, address: ?*c_void) void {
   const dataPtrInt = @ptrToInt(address);
 
   if (dataPtrInt == 0) {

@@ -1,5 +1,6 @@
 const std = @import("std");
 const SingleStackAllocator = @import("../SingleStackAllocator.zig").SingleStackAllocator;
+const ArrayList = @import("../ArrayListOutStream.zig").ArrayList;
 const ArrayListOutStream = @import("../ArrayListOutStream.zig").ArrayListOutStream;
 const image = @import("image.zig");
 const WriteRaw = @import("raw.zig").WriteRaw;
@@ -114,9 +115,9 @@ fn testLoadTga(
 ) !void {
   var memory: [100 * 1024]u8 = undefined;
   var ssa = SingleStackAllocator.init(memory[0..]);
-  const allocator = &ssa.stack.allocator;
-  const mark = ssa.stack.get_mark();
-  defer ssa.stack.free_to_mark(mark);
+  const allocator = ssa.allocator();
+  const mark = ssa.getMark();
+  defer ssa.freeToMark(mark);
 
   var source = IConstSlice.init(@embedFile(tgaFilename));
   var in_stream = source.inStream();
@@ -141,7 +142,7 @@ fn testLoadTga(
   try LoadTgaType.load(in_stream, seekable, tgaInfo, img);
 
   // write image in raw format and compare it the copy in testdata
-  var arrayList = std.ArrayList(u8).init(allocator);
+  var arrayList = ArrayList(u8).init(allocator);
   defer arrayList.deinit();
   var alos = ArrayListOutStream.init(&arrayList);
 

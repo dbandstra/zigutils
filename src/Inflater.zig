@@ -1,6 +1,8 @@
 const std = @import("std");
+
 const c = @import("c.zig");
 const util = @import("util.zig");
+const Allocator = @import("traits/Allocator.zig").Allocator;
 const OwnerId = @import("OwnerId.zig").OwnerId;
 
 // The reason this has been split off from InflateInStream is that it contains
@@ -16,14 +18,14 @@ pub const Inflater = struct{
     OutOfMemory, // zlib's internal allocation failed
   };
 
-  allocator: *std.mem.Allocator,
+  allocator: *Allocator,
   windowBits: i32,
   zlib_stream_active: bool,
   zlib_stream: c.z_stream,
   resetting: bool,
   owned_by: ?OwnerId,
 
-  pub fn init(allocator: *std.mem.Allocator, windowBits: i32) Self {
+  pub fn init(allocator: *Allocator, windowBits: i32) Self {
     var self = Self{
       .allocator = allocator,
       .windowBits = windowBits,
@@ -142,14 +144,14 @@ pub const Inflater = struct{
   }
 
   extern fn zalloc(opaque: ?*c_void, items: c_uint, size: c_uint) ?*c_void {
-    const allocator = @ptrCast(*std.mem.Allocator, @alignCast(@alignOf(std.mem.Allocator), opaque.?));
+    const allocator = @ptrCast(*Allocator, @alignCast(@alignOf(Allocator), opaque.?));
 
-    return util.allocCPointer(allocator, items * size);
+    return util.allocCPointer(allocator.*, items * size);
   }
 
   extern fn zfree(opaque: ?*c_void, address: ?*c_void) void {
-    const allocator = @ptrCast(*std.mem.Allocator, @alignCast(@alignOf(std.mem.Allocator), opaque.?));
+    const allocator = @ptrCast(*Allocator, @alignCast(@alignOf(Allocator), opaque.?));
 
-    util.freeCPointer(allocator, address);
+    util.freeCPointer(allocator.*, address);
   }
 };
