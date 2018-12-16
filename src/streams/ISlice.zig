@@ -20,18 +20,6 @@ pub const ISlice = struct {
     };
   }
 
-  pub fn outStream(self: *ISlice) OutStream {
-    const GlobalStorage = struct {
-      const vtable = OutStream.VTable{
-        .write = outStreamWrite,
-      };
-    };
-    return OutStream{
-      .impl = @ptrCast(*c_void, self),
-      .vtable = &GlobalStorage.vtable,
-    };
-  }
-
   pub fn seekableStream(self: *ISlice) SeekableStream(SeekError, GetSeekPosError) {
     return SeekableStream(SeekError, GetSeekPosError).init(self);
   }
@@ -58,14 +46,6 @@ pub const ISlice = struct {
     if (n < bytes.len) {
       return WriteError.OutOfSpace;
     }
-  }
-
-  fn outStreamWrite(impl: *c_void, bytes: []const u8) OutStream.Error!void {
-    const self = @ptrCast(*ISlice, @alignCast(@alignOf(ISlice), impl));
-    self.write(bytes) catch |err| {
-      self.write_error = err;
-      return OutStream.Error.WriteError;
-    };
   }
 
   pub fn seekTo(self: *ISlice, pos: usize) SeekError!void {
@@ -105,5 +85,27 @@ pub const ISlice = struct {
 
   pub fn getPos(self: *ISlice) GetSeekPosError!usize {
     return self.pos;
+  }
+
+  // OutStream
+
+  pub fn outStream(self: *ISlice) OutStream {
+    const GlobalStorage = struct {
+      const vtable = OutStream.VTable{
+        .write = outStreamWrite,
+      };
+    };
+    return OutStream{
+      .impl = @ptrCast(*c_void, self),
+      .vtable = &GlobalStorage.vtable,
+    };
+  }
+
+  fn outStreamWrite(impl: *c_void, bytes: []const u8) OutStream.Error!void {
+    const self = @ptrCast(*ISlice, @alignCast(@alignOf(ISlice), impl));
+    self.write(bytes) catch |err| {
+      self.write_error = err;
+      return OutStream.Error.WriteError;
+    };
   }
 };

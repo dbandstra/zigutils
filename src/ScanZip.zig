@@ -107,11 +107,9 @@ pub const ZipFileInfo = struct{
 };
 
 pub fn ScanZip(
-  comptime ReadError: type,
   comptime SeekError: type,
   comptime GetSeekPosError: type,
 ) type {
-  const MyInStream = InStream(ReadError);
   const MySeekableStream = SeekableStream(SeekError, GetSeekPosError);
 
   return struct{
@@ -123,7 +121,7 @@ pub fn ScanZip(
 
     // try to decide if the file is actually a zip file. this could be improved
     pub fn is_zip_file(
-      stream: MyInStream,
+      stream: InStream,
       seekable: MySeekableStream,
     ) !bool {
       try seekable.seekTo(0);
@@ -140,7 +138,7 @@ pub fn ScanZip(
     // assume the seek position is undefined after calling this function.
     // TODO - extremely inefficient, optimize this function!
     pub fn find_central_directory(
-      stream: MyInStream,
+      stream: InStream,
       seekable: MySeekableStream,
     ) !CentralDirectoryInfo {
       const endPos = try seekable.getEndPos();
@@ -152,7 +150,7 @@ pub fn ScanZip(
         var eocdr: EndOfCentralDirectoryRecord.Struct = undefined;
 
         try seekable.seekTo(pos);
-        try readOneNoEof(ReadError, stream, EndOfCentralDirectoryRecord.Struct, &eocdr);
+        try readOneNoEof(stream, EndOfCentralDirectoryRecord.Struct, &eocdr);
 
         const signature = EndOfCentralDirectoryRecord.signature.read(&eocdr);
 
@@ -191,7 +189,7 @@ pub fn ScanZip(
 
     pub fn walk(
       walkState: *ZipWalkState,
-      stream: MyInStream,
+      stream: InStream,
       seekable: MySeekableStream,
     ) !?*ZipWalkFile {
       if (walkState.relPos >= walkState.cdInfo.size) {
@@ -203,7 +201,7 @@ pub fn ScanZip(
 
       var pos = walkState.cdInfo.offset + walkState.relPos;
       try seekable.seekTo(pos);
-      try readOneNoEof(ReadError, stream, CentralDirectoryFileHeader.Struct, &fileHeader);
+      try readOneNoEof(stream, CentralDirectoryFileHeader.Struct, &fileHeader);
 
       const signature = CentralDirectoryFileHeader.signature.read(&fileHeader);
 
@@ -246,7 +244,7 @@ pub fn ScanZip(
 
     pub fn find_file_in_directory(
       cdInfo: CentralDirectoryInfo,
-      stream: MyInStream,
+      stream: InStream,
       seekable: MySeekableStream,
       filename: []const u8,
     ) !?ZipFileInfo {
@@ -268,7 +266,7 @@ pub fn ScanZip(
     }
 
     pub fn find_file(
-      stream: MyInStream,
+      stream: InStream,
       seekable: MySeekableStream,
       filename: []const u8,
     ) !?ZipFileInfo {

@@ -26,7 +26,6 @@ test "ZipTest: locate and decompress a file from a zip archive" {
   var seekable = ifile.seekableStream();
 
   const sz = ScanZip(
-    std.os.File.ReadError,
     std.os.File.SeekError,
     std.os.File.GetSeekPosError,
   );
@@ -43,7 +42,7 @@ test "ZipTest: locate and decompress a file from a zip archive" {
     var inflater = Inflater.init(&allocator, -15);
     defer inflater.deinit();
     var inflateBuf: [256]u8 = undefined;
-    var iis = InflateInStream(std.os.File.ReadError).init(&inflater, in_stream, inflateBuf[0..]);
+    var iis = InflateInStream.init(&inflater, in_stream, inflateBuf[0..]);
     defer iis.deinit();
 
     var index: usize = 0;
@@ -69,7 +68,6 @@ test "ZipTest: count files inside a zip archive" {
   var seekable = ifile.seekableStream();
 
   const sz = ScanZip(
-    std.os.File.ReadError,
     std.os.File.SeekError,
     std.os.File.GetSeekPosError,
   );

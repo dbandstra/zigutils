@@ -44,29 +44,27 @@ pub fn tgaBestStoreFormat(tgaInfo: TgaInfo) image.Format {
 }
 
 pub fn LoadTga(
-  comptime ReadError: type,
   comptime SeekError: type,
   comptime GetSeekPosError: type,
 ) type {
-  const MyInStream = InStream(ReadError);
   const MySeekableStream = SeekableStream(SeekError, GetSeekPosError);
 
   return struct{
     const Self = @This();
 
     const PreloadError =
-      ReadError ||
+      InStream.Error ||
       error{EndOfStream} || // returned by InStream::readByte
       error{Corrupt, Unsupported};
 
     const LoadError =
-      ReadError ||
+      InStream.Error ||
       SeekError ||
       error{EndOfStream} || // returned by InStream::readByte;
       error{Corrupt};
 
     pub fn preload(
-      stream: MyInStream,
+      stream: InStream,
       seekable: MySeekableStream,
     ) PreloadError!TgaInfo {
       const id_length = try stream.readByte();
@@ -142,7 +140,7 @@ pub fn LoadTga(
     }
 
     pub fn load(
-      stream: MyInStream,
+      stream: InStream,
       seekable: MySeekableStream,
       tgaInfo: TgaInfo,
       img: *image.Image,
@@ -204,7 +202,7 @@ pub fn LoadTga(
       }
     }
 
-    fn readPixel(pixelSize: u8, stream: MyInStream) ReadError!image.Pixel {
+    fn readPixel(pixelSize: u8, stream: InStream) InStream.Error!image.Pixel {
       switch (pixelSize) {
         16 => {
           var p: [2]u8 = undefined;

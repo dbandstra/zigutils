@@ -27,19 +27,15 @@ pub const IFile = struct {
   pub const GetSeekPosError = std.os.File.GetSeekPosError;
 
   file: std.os.File,
+  read_error: ?ReadError,
+  write_error: ?WriteError,
 
   pub fn init(file: std.os.File) IFile {
     return IFile{
       .file = file,
+      .read_error = null,
+      .write_error = null,
     };
-  }
-
-  pub fn inStream(self: *IFile) InStream(ReadError) {
-    return InStream(ReadError).init(self);
-  }
-
-  pub fn outStream(self: *IFile) OutStream(WriteError) {
-    return OutStream(WriteError).init(self);
   }
 
   pub fn seekableStream(self: *IFile) SeekableStream(SeekError, GetSeekPosError) {
@@ -68,5 +64,49 @@ pub const IFile = struct {
 
   pub fn getPos(self: *IFile) GetSeekPosError!usize {
     return self.file.getPos();
+  }
+
+  // InStream
+
+  pub fn inStream(self: *IFile) InStream {
+    const GlobalStorage = struct {
+      const vtable = InStream.VTable{
+        .read = inStreamRead,
+      };
+    };
+    return InStream{
+      .impl = @ptrCast(*c_void, self),
+      .vtable = &GlobalStorage.vtable,
+    };
+  }
+
+  fn inStreamRead(impl: *c_void, dest: []u8) InStream.Error!usize {
+    const self = @ptrCast(*IFile, @alignCast(@alignOf(IFile), impl));
+    return self.read(dest) catch |err| {
+      self.read_error = err;
+      return InStream.Error.ReadError;
+    };
+  }
+
+  // OutStream
+
+  pub fn outStream(self: *IFile) OutStream {
+    const GlobalStorage = struct {
+      const vtable = OutStream.VTable{
+        .write = outStreamWrite,
+      };
+    };
+    return OutStream{
+      .impl = @ptrCast(*c_void, self),
+      .vtable = &GlobalStorage.vtable,
+    };
+  }
+
+  fn outStreamWrite(impl: *c_void, bytes: []u8) OutStream.Error!void {
+    const self = @ptrCast(*IFile, @alignCast(@alignOf(IFile), impl));
+    self.write(bytes) catch |err| {
+      self.write_error = err;
+      return OutStream.Error.WriteError;
+    };
   }
 };

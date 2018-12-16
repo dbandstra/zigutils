@@ -30,13 +30,13 @@ pub fn swapSlices(comptime T: type, a: []T, b: []T) void {
 }
 
 // copied from macho.zig
-pub fn readNoEof(comptime ReadError: type, in: InStream(ReadError), comptime T: type, result: []T) !void {
+pub fn readNoEof(in: InStream, comptime T: type, result: []T) !void {
   return in.readNoEof(@sliceToBytes(result));
 }
 
 // copied from macho.zig
-pub fn readOneNoEof(comptime ReadError: type, in: InStream(ReadError), comptime T: type, result: *T) !void {
-  return readNoEof(ReadError, in, T, (*[1]T)(result)[0..]);
+pub fn readOneNoEof(in: InStream, comptime T: type, result: *T) !void {
+  return readNoEof(in, T, (*[1]T)(result)[0..]);
 }
 
 pub fn clearStruct(comptime T: type, value: *T) void {

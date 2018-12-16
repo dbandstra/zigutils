@@ -125,7 +125,6 @@ fn testLoadTga(
 
   // load tga
   const LoadTgaType = LoadTga(
-    IConstSlice.ReadError,
     IConstSlice.SeekError,
     IConstSlice.GetSeekPosError,
   );

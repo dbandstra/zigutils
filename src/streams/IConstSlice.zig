@@ -10,16 +10,14 @@ pub const IConstSlice = struct {
 
   slice: []const u8,
   pos: usize,
+  read_error: ?ReadError,
 
   pub fn init(slice: []const u8) IConstSlice {
     return IConstSlice{
       .slice = slice,
       .pos = 0,
+      .read_error = null,
     };
-  }
-
-  pub fn inStream(self: *IConstSlice) InStream(ReadError) {
-    return InStream(ReadError).init(self);
   }
 
   pub fn seekableStream(self: *IConstSlice) SeekableStream(SeekError, GetSeekPosError) {
@@ -73,6 +71,28 @@ pub const IConstSlice = struct {
 
   pub fn getPos(self: *IConstSlice) GetSeekPosError!usize {
     return self.pos;
+  }
+
+  // InStream
+
+  pub fn inStream(self: *IConstSlice) InStream {
+    const GlobalStorage = struct {
+      const vtable = InStream.VTable{
+        .read = inStreamRead,
+      };
+    };
+    return InStream{
+      .impl = @ptrCast(*c_void, self),
+      .vtable = &GlobalStorage.vtable,
+    };
+  }
+
+  fn inStreamRead(impl: *c_void, dest: []u8) InStream.Error!usize {
+    const self = @ptrCast(*IConstSlice, @alignCast(@alignOf(IConstSlice), impl));
+    return self.read(dest) catch |err| {
+      self.read_error = err;
+      return InStream.Error.ReadError;
+    };
   }
 };
 
