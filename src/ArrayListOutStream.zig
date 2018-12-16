@@ -72,22 +72,40 @@ pub fn AlignedArrayList(comptime T: type, comptime A: u29) type {
 //
 
 pub const ArrayListOutStream = struct{
-  pub const Error = Allocator.Error; // this is what ArrayList::appendSlice can throw
+  pub const WriteError = Allocator.Error; // this is what ArrayList::appendSlice can throw
 
   array_list: *ArrayList(u8),
+  write_error: ?WriteError,
 
   pub fn init(array_list: *ArrayList(u8)) ArrayListOutStream {
     return ArrayListOutStream{
       .array_list = array_list,
+      .write_error = null,
     };
   }
 
-  pub fn outStream(self: *ArrayListOutStream) OutStream(Error) {
-    return OutStream(Error).init(self);
+  pub fn outStream(self: *ArrayListOutStream) OutStream {
+    const GlobalStorage = struct {
+      const vtable = OutStream.VTable{
+        .write = outStreamWrite,
+      };
+    };
+    return OutStream{
+      .impl = @ptrCast(*c_void, self),
+      .vtable = &GlobalStorage.vtable,
+    };
   }
 
-  pub fn write(self: *ArrayListOutStream, bytes: []const u8) Error!void {
+  pub fn write(self: *ArrayListOutStream, bytes: []const u8) WriteError!void {
     try self.array_list.appendSlice(bytes);
+  }
+
+  fn outStreamWrite(impl: *c_void, bytes: []const u8) OutStream.Error!void {
+    const self = @ptrCast(*ArrayListOutStream, @alignCast(@alignOf(ArrayListOutStream), impl));
+    self.write(bytes) catch |err| {
+      self.write_error = err;
+      return OutStream.Error.WriteError;
+    };
   }
 };
 

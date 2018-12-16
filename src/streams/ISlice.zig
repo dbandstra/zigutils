@@ -10,16 +10,26 @@ pub const ISlice = struct {
 
   slice: []u8,
   pos: usize,
+  write_error: ?WriteError,
 
   pub fn init(slice: []u8) ISlice {
     return ISlice{
       .slice = slice,
       .pos = 0,
+      .write_error = null,
     };
   }
 
-  pub fn outStream(self: *ISlice) OutStream(WriteError) {
-    return OutStream(WriteError).init(self);
+  pub fn outStream(self: *ISlice) OutStream {
+    const GlobalStorage = struct {
+      const vtable = OutStream.VTable{
+        .write = outStreamWrite,
+      };
+    };
+    return OutStream{
+      .impl = @ptrCast(*c_void, self),
+      .vtable = &GlobalStorage.vtable,
+    };
   }
 
   pub fn seekableStream(self: *ISlice) SeekableStream(SeekError, GetSeekPosError) {
@@ -48,6 +58,14 @@ pub const ISlice = struct {
     if (n < bytes.len) {
       return WriteError.OutOfSpace;
     }
+  }
+
+  fn outStreamWrite(impl: *c_void, bytes: []const u8) OutStream.Error!void {
+    const self = @ptrCast(*ISlice, @alignCast(@alignOf(ISlice), impl));
+    self.write(bytes) catch |err| {
+      self.write_error = err;
+      return OutStream.Error.WriteError;
+    };
   }
 
   pub fn seekTo(self: *ISlice, pos: usize) SeekError!void {

@@ -9,50 +9,48 @@ const IFile = @import("streams/IFile.zig").IFile;
 // Read a line from stdin
 //
 
-pub fn LineReader(comptime OutStreamError: type) type {
-  return struct{
-    // TODO - move this out... too specialized
-    pub fn read_line_from_stdin(out_stream: OutStream(OutStreamError)) !void {
-      var stdin = std.io.getStdIn() catch return error.StdInUnavailable;
-      var ifile = IFile.init(stdin);
-      var in_stream = ifile.inStream();
-      return read_line_from_stream(std.os.File.ReadError, in_stream, out_stream);
-    }
+pub const LineReader = struct {
+  // TODO - move this out... too specialized
+  pub fn read_line_from_stdin(out_stream: OutStream) !void {
+    var stdin = std.io.getStdIn() catch return error.StdInUnavailable;
+    var ifile = IFile.init(stdin);
+    var in_stream = ifile.inStream();
+    return read_line_from_stream(std.os.File.ReadError, in_stream, out_stream);
+  }
 
-    // this function is split off so it can be tested
-    pub fn read_line_from_stream(
-      comptime InStreamError: type,
-      stream: InStream(InStreamError),
-      out_stream: OutStream(OutStreamError),
-    ) !void {
-      var failed: ?OutStreamError = null;
+  // this function is split off so it can be tested
+  pub fn read_line_from_stream(
+    comptime InStreamError: type,
+    stream: InStream(InStreamError),
+    out_stream: OutStream,
+  ) !void {
+    var failed: ?OutStream.Error = null;
 
-      while (true) {
-        const byte = stream.readByte() catch return error.EndOfFile;
-        switch (byte) {
-          '\r' => {
-            // trash the following \n
-            _ = stream.readByte() catch return error.EndOfFile;
-            break;
-          },
-          '\n' => break,
-          else => {
-            // if a write fails, we will keep consuming stdin till end of line
-            if (failed == null) {
-              out_stream.writeByte(byte) catch |err| {
-                failed = err;
-              };
-            }
-          },
-        }
-      }
-
-      if (failed) |err| {
-        return err;
+    while (true) {
+      const byte = stream.readByte() catch return error.EndOfFile;
+      switch (byte) {
+        '\r' => {
+          // trash the following \n
+          _ = stream.readByte() catch return error.EndOfFile;
+          break;
+        },
+        '\n' => break,
+        else => {
+          // if a write fails, we will keep consuming stdin till end of line
+          if (failed == null) {
+            out_stream.writeByte(byte) catch |err| {
+              failed = err;
+            };
+          }
+        },
       }
     }
-  };
-}
+
+    if (failed) |err| {
+      return err;
+    }
+  }
+};
 
 test "LineReader: reads lines and fails upon EOF" {
   const IConstSlice = @import("streams/IConstSlice.zig").IConstSlice;
@@ -67,25 +65,23 @@ test "LineReader: reads lines and fails upon EOF" {
   var dest = ISlice.init(out_buf[0..]);
   var out_stream = dest.outStream();
 
-  const line_reader = LineReader(ISlice.WriteError);
-
   dest.reset();
-  try line_reader.read_line_from_stream(IConstSlice.ReadError, in_stream, out_stream);
+  try LineReader.read_line_from_stream(IConstSlice.ReadError, in_stream, out_stream);
   std.debug.assert(std.mem.eql(u8, dest.getWritten(), "First line"));
 
   dest.reset();
-  try line_reader.read_line_from_stream(IConstSlice.ReadError, in_stream, out_stream);
+  try LineReader.read_line_from_stream(IConstSlice.ReadError, in_stream, out_stream);
   std.debug.assert(std.mem.eql(u8, dest.getWritten(), "Second line"));
 
   dest.reset();
-  try line_reader.read_line_from_stream(IConstSlice.ReadError, in_stream, out_stream);
+  try LineReader.read_line_from_stream(IConstSlice.ReadError, in_stream, out_stream);
   std.debug.assert(std.mem.eql(u8, dest.getWritten(), ""));
 
   // current behaviour is to throw an error when a read fails (e.g. end of
   // file). not sure if this is ideal
   var endOfFile = false;
   dest.reset();
-  line_reader.read_line_from_stream(IConstSlice.ReadError, in_stream, out_stream) catch |err| switch (err) {
+  LineReader.read_line_from_stream(IConstSlice.ReadError, in_stream, out_stream) catch |err| switch (err) {
     error.EndOfFile => endOfFile = true,
     else => {},
   };
@@ -104,19 +100,16 @@ test "LineReader: keeps consuming till EOL even if write fails" {
   var dest = ISlice.init(out_buf[0..]);
   var out_stream = dest.outStream();
 
-  const line_reader = LineReader(ISlice.WriteError);
-
-  var outOfSpace = false;
   dest.reset();
-  line_reader.read_line_from_stream(IConstSlice.ReadError, in_stream, out_stream) catch |err| switch (err) {
-    error.OutOfSpace => outOfSpace = true,
-    else => {},
-  };
-  std.debug.assert(outOfSpace == true);
+  std.debug.assertError(
+    LineReader.read_line_from_stream(IConstSlice.ReadError, in_stream, out_stream),
+    error.WriteError,
+  );
+  std.debug.assert(dest.write_error.? == error.OutOfSpace);
   std.debug.assert(std.mem.eql(u8, dest.getWritten(), "First line i"));
 
   dest.reset();
-  try line_reader.read_line_from_stream(IConstSlice.ReadError, in_stream, out_stream);
+  try LineReader.read_line_from_stream(IConstSlice.ReadError, in_stream, out_stream);
   std.debug.assert(std.mem.eql(u8, dest.getWritten(), "Second"));
 }
 
