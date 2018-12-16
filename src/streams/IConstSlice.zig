@@ -4,27 +4,21 @@ const InStream = @import("InStream.zig").InStream;
 const SeekableStream = @import("SeekableStream.zig").SeekableStream;
 
 pub const IConstSlice = struct {
-  pub const ReadError = error{};
   pub const SeekError = error{SliceSeekOutOfBounds};
-  pub const GetSeekPosError = error{};
 
   slice: []const u8,
   pos: usize,
-  read_error: ?ReadError,
   seek_error: ?SeekError,
-  get_seek_pos_error: ?GetSeekPosError,
 
   pub fn init(slice: []const u8) IConstSlice {
     return IConstSlice{
       .slice = slice,
       .pos = 0,
-      .read_error = null,
       .seek_error = null,
-      .get_seek_pos_error = null,
     };
   }
 
-  pub fn read(self: *IConstSlice, dest: []u8) ReadError!usize {
+  pub fn read(self: *IConstSlice, dest: []u8) usize {
     const size = std.math.min(dest.len, self.slice.len - self.pos);
     const end = self.pos + size;
 
@@ -65,11 +59,11 @@ pub const IConstSlice = struct {
     }
   }
 
-  pub fn getEndPos(self: *IConstSlice) GetSeekPosError!usize {
+  pub fn getEndPos(self: *IConstSlice) usize {
     return self.slice.len;
   }
 
-  pub fn getPos(self: *IConstSlice) GetSeekPosError!usize {
+  pub fn getPos(self: *IConstSlice) usize {
     return self.pos;
   }
 
@@ -89,10 +83,7 @@ pub const IConstSlice = struct {
 
   fn inStreamRead(impl: *c_void, dest: []u8) InStream.Error!usize {
     const self = @ptrCast(*IConstSlice, @alignCast(@alignOf(IConstSlice), impl));
-    return self.read(dest) catch |err| {
-      self.read_error = err;
-      return InStream.Error.ReadError;
-    };
+    return self.read(dest);
   }
 
   // SeekableStream
@@ -130,18 +121,12 @@ pub const IConstSlice = struct {
 
   pub fn seekableGetEndPos(impl: *c_void) SeekableStream.GetSeekPosError!usize {
     const self = @ptrCast(*IConstSlice, @alignCast(@alignOf(IConstSlice), impl));
-    return self.getEndPos() catch |err| {
-      self.get_seek_pos_error = err;
-      return SeekableStream.GetSeekPosError.GetSeekPosError;
-    };
+    return self.getEndPos();
   }
 
   pub fn seekableGetPos(impl: *c_void) SeekableStream.GetSeekPosError!usize {
     const self = @ptrCast(*IConstSlice, @alignCast(@alignOf(IConstSlice), impl));
-    return self.getPos() catch |err| {
-      self.get_seek_pos_error = err;
-      return SeekableStream.GetSeekPosError.GetSeekPosError;
-    };
+    return self.getPos();
   }
 };
 
@@ -150,8 +135,7 @@ test "IConstSlice: source buffer smaller than read buffer" {
 
   var dest_buf: [100]u8 = undefined;
 
-  // unfortunately, you have to `try`, even though this function never throws
-  const br0 = try source.read(dest_buf[0..]);
+  const br0 = source.read(dest_buf[0..]);
   std.debug.assert(std.mem.eql(u8, dest_buf[0..br0], "Hello world"));
 }
 
@@ -160,19 +144,19 @@ test "IConstSlice: source buffer longer than read buffer" {
 
   var dest_buf: [5]u8 = undefined;
 
-  const br0 = try source.read(dest_buf[0..]);
+  const br0 = source.read(dest_buf[0..]);
   std.debug.assert(std.mem.eql(u8, dest_buf[0..br0], "Betwe"));
 
-  const br1 = try source.read(dest_buf[0..]);
+  const br1 = source.read(dest_buf[0..]);
   std.debug.assert(std.mem.eql(u8, dest_buf[0..br1], "en 15"));
 
-  const br2 = try source.read(dest_buf[0..]);
+  const br2 = source.read(dest_buf[0..]);
   std.debug.assert(std.mem.eql(u8, dest_buf[0..br2], " and "));
 
-  const br3 = try source.read(dest_buf[0..]);
+  const br3 = source.read(dest_buf[0..]);
   std.debug.assert(std.mem.eql(u8, dest_buf[0..br3], "20."));
 
-  const br4 = try source.read(dest_buf[0..]);
+  const br4 = source.read(dest_buf[0..]);
   std.debug.assert(br4 == 0);
 }
 
@@ -181,27 +165,27 @@ test "IConstSlice: seeking around" {
 
   var dest_buf: [5]u8 = undefined;
 
-  const br0 = try source.read(dest_buf[0..]);
+  const br0 = source.read(dest_buf[0..]);
   std.debug.assert(std.mem.eql(u8, dest_buf[0..br0], "This "));
 
   try source.seekForward(3);
-  const br1 = try source.read(dest_buf[0..]);
+  const br1 = source.read(dest_buf[0..]);
   std.debug.assert(std.mem.eql(u8, dest_buf[0..br1], "a dec"));
 
   try source.seekForward(-2);
-  const br2 = try source.read(dest_buf[0..]);
+  const br2 = source.read(dest_buf[0..]);
   std.debug.assert(std.mem.eql(u8, dest_buf[0..br2], "ecent"));
 
   try source.seekForward(0);
-  const cur_pos = try source.getPos();
+  const cur_pos = source.getPos();
   std.debug.assert(cur_pos == 16);
 
   try source.seekTo(1);
-  const br3 = try source.read(dest_buf[0..]);
+  const br3 = source.read(dest_buf[0..]);
   std.debug.assert(std.mem.eql(u8, dest_buf[0..br3], "his i"));
 
   try source.seekTo(source.slice.len - 3);
-  const br4 = try source.read(dest_buf[0..]);
+  const br4 = source.read(dest_buf[0..]);
   std.debug.assert(std.mem.eql(u8, dest_buf[0..br4], "ce."));
 
   std.debug.assertError(source.seekTo(999), error.SliceSeekOutOfBounds);

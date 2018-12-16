@@ -6,13 +6,11 @@ const SeekableStream = @import("SeekableStream.zig").SeekableStream;
 pub const ISlice = struct {
   pub const WriteError = error{OutOfSpace};
   pub const SeekError = error{SliceSeekOutOfBounds};
-  pub const GetSeekPosError = error{};
 
   slice: []u8,
   pos: usize,
   write_error: ?WriteError,
   seek_error: ?SeekError,
-  get_seek_pos_error: ?GetSeekPosError,
 
   pub fn init(slice: []u8) ISlice {
     return ISlice{
@@ -20,7 +18,6 @@ pub const ISlice = struct {
       .pos = 0,
       .write_error = null,
       .seek_error = null,
-      .get_seek_pos_error = null,
     };
   }
 
@@ -79,11 +76,11 @@ pub const ISlice = struct {
     }
   }
 
-  pub fn getEndPos(self: *ISlice) GetSeekPosError!usize {
+  pub fn getEndPos(self: *ISlice) usize {
     return self.slice.len;
   }
 
-  pub fn getPos(self: *ISlice) GetSeekPosError!usize {
+  pub fn getPos(self: *ISlice) usize {
     return self.pos;
   }
 
@@ -144,17 +141,11 @@ pub const ISlice = struct {
 
   pub fn seekableGetEndPos(impl: *c_void) SeekableStream.GetSeekPosError!usize {
     const self = @ptrCast(*ISlice, @alignCast(@alignOf(ISlice), impl));
-    return self.getEndPos() catch |err| {
-      self.get_seek_pos_error = err;
-      return SeekableStream.GetSeekPosError.GetSeekPosError;
-    };
+    return self.getEndPos();
   }
 
   pub fn seekableGetPos(impl: *c_void) SeekableStream.GetSeekPosError!usize {
     const self = @ptrCast(*ISlice, @alignCast(@alignOf(ISlice), impl));
-    return self.getPos() catch |err| {
-      self.get_seek_pos_error = err;
-      return SeekableStream.GetSeekPosError.GetSeekPosError;
-    };
+    return self.getPos();
   }
 };
