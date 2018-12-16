@@ -43,19 +43,13 @@ pub fn InStream(comptime E: type) type {
     pub fn readIntLe(self: @This(), comptime T: type) !T {
       var bytes: [@sizeOf(T)]u8 = undefined;
       try self.readNoEof(bytes[0..]);
-      return std.mem.readIntLE(T, bytes);
+      return std.mem.readIntSliceLittle(T, bytes);
     }
 
     pub fn readIntBe(self: @This(), comptime T: type) !T {
       var bytes: [@sizeOf(T)]u8 = undefined;
       try self.readNoEof(bytes[0..]);
-      return std.mem.readIntBE(T, bytes);
-    }
-
-    pub fn readInt(self: @This(), endian: builtin.Endian, comptime T: type) !T {
-      var bytes: [@sizeOf(T)]u8 = undefined;
-      try self.readNoEof(bytes[0..]);
-      return std.mem.readInt(bytes, T, endian);
+      return std.mem.readIntSliceBig(T, bytes);
     }
   };
 }
