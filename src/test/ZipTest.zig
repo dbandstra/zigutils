@@ -25,12 +25,7 @@ test "ZipTest: locate and decompress a file from a zip archive" {
   var in_stream = ifile.inStream();
   var seekable = ifile.seekableStream();
 
-  const sz = ScanZip(
-    std.os.File.SeekError,
-    std.os.File.GetSeekPosError,
-  );
-
-  const info = try sz.find_file(in_stream, seekable, "zlib-1.2.11/adler32.c");
+  const info = try ScanZip.find_file(in_stream, seekable, "zlib-1.2.11/adler32.c");
 
   if (info) |fileInfo| {
     const pos = std.math.cast(usize, fileInfo.offset) catch unreachable;
@@ -67,20 +62,15 @@ test "ZipTest: count files inside a zip archive" {
   var in_stream = ifile.inStream();
   var seekable = ifile.seekableStream();
 
-  const sz = ScanZip(
-    std.os.File.SeekError,
-    std.os.File.GetSeekPosError,
-  );
-
-  const isZipFile = try sz.is_zip_file(in_stream, seekable);
+  const isZipFile = try ScanZip.is_zip_file(in_stream, seekable);
   std.debug.assert(isZipFile);
-  const cdInfo = try sz.find_central_directory(in_stream, seekable);
+  const cdInfo = try ScanZip.find_central_directory(in_stream, seekable);
   var walkState: ZipWalkState = undefined;
   var filenameBuf: [260]u8 = undefined;
-  sz.walkInit(cdInfo, &walkState, filenameBuf[0..]);
+  ScanZip.walkInit(cdInfo, &walkState, filenameBuf[0..]);
 
   var count: usize = 0;
-  while (try sz.walk(&walkState, in_stream, seekable)) |f| {
+  while (try ScanZip.walk(&walkState, in_stream, seekable)) |f| {
     count += 1;
     if (count > 1000) {
       unreachable;

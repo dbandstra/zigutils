@@ -124,11 +124,7 @@ fn testLoadTga(
   var seekable = source.seekableStream();
 
   // load tga
-  const LoadTgaType = LoadTga(
-    IConstSlice.SeekError,
-    IConstSlice.GetSeekPosError,
-  );
-  const tgaInfo = try LoadTgaType.preload(in_stream, seekable);
+  const tgaInfo = try LoadTga.preload(in_stream, seekable);
   std.debug.assert(tgaInfo.image_type == params.expectedImageType);
   std.debug.assert(tgaInfo.pixel_size == params.expectedPixelSize);
   std.debug.assert(tgaInfo.attr_bits == params.expectedAttrBits);
@@ -138,7 +134,7 @@ fn testLoadTga(
     .format = tgaBestStoreFormat(tgaInfo),
   });
   defer image.destroyImage(allocator, img);
-  try LoadTgaType.load(in_stream, seekable, tgaInfo, img);
+  try LoadTga.load(in_stream, seekable, tgaInfo, img);
 
   // write image in raw format and compare it the copy in testdata
   var arrayList = ArrayList(u8).init(allocator);

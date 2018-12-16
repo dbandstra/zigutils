@@ -106,182 +106,175 @@ pub const ZipFileInfo = struct{
   offset: usize,
 };
 
-pub fn ScanZip(
-  comptime SeekError: type,
-  comptime GetSeekPosError: type,
-) type {
-  const MySeekableStream = SeekableStream(SeekError, GetSeekPosError);
+pub const ScanZip = struct {
+  pub const Error = error{
+    NotZipFile,
+    Unsupported, // known feature but not implemented
+    Corrupt, // corrupt or unsupported future thing
+  };
 
-  return struct{
-    pub const Error = error{
-      NotZipFile,
-      Unsupported, // known feature but not implemented
-      Corrupt, // corrupt or unsupported future thing
-    };
+  // try to decide if the file is actually a zip file. this could be improved
+  pub fn is_zip_file(
+    stream: InStream,
+    seekable: SeekableStream,
+  ) !bool {
+    try seekable.seekTo(0);
 
-    // try to decide if the file is actually a zip file. this could be improved
-    pub fn is_zip_file(
-      stream: InStream,
-      seekable: MySeekableStream,
-    ) !bool {
-      try seekable.seekTo(0);
+    const a = try stream.readByte();
+    const b = try stream.readByte();
 
-      const a = try stream.readByte();
-      const b = try stream.readByte();
+    // "MZ" is a self-executing zip file
+    return (a == 'P' and b == 'K') or (a == 'M' and b == 'Z');
+  }
 
-      // "MZ" is a self-executing zip file
-      return (a == 'P' and b == 'K') or (a == 'M' and b == 'Z');
-    }
+  // locate the central directory by searching backward from the end of the
+  // file.
+  // assume the seek position is undefined after calling this function.
+  // TODO - extremely inefficient, optimize this function!
+  pub fn find_central_directory(
+    stream: InStream,
+    seekable: SeekableStream,
+  ) !CentralDirectoryInfo {
+    const endPos = try seekable.getEndPos();
 
-    // locate the central directory by searching backward from the end of the
-    // file.
-    // assume the seek position is undefined after calling this function.
-    // TODO - extremely inefficient, optimize this function!
-    pub fn find_central_directory(
-      stream: InStream,
-      seekable: MySeekableStream,
-    ) !CentralDirectoryInfo {
-      const endPos = try seekable.getEndPos();
+    // what happens if this goes below 0? zig does something?
+    var pos = endPos - @sizeOf(EndOfCentralDirectoryRecord.Struct);
 
-      // what happens if this goes below 0? zig does something?
-      var pos = endPos - @sizeOf(EndOfCentralDirectoryRecord.Struct);
+    while (pos > endPos - @sizeOf(EndOfCentralDirectoryRecord.Struct) - std.math.maxInt(EndOfCentralDirectoryRecord.commentLength.getType())) {
+      var eocdr: EndOfCentralDirectoryRecord.Struct = undefined;
 
-      while (pos > endPos - @sizeOf(EndOfCentralDirectoryRecord.Struct) - std.math.maxInt(EndOfCentralDirectoryRecord.commentLength.getType())) {
-        var eocdr: EndOfCentralDirectoryRecord.Struct = undefined;
+      try seekable.seekTo(pos);
+      try readOneNoEof(stream, EndOfCentralDirectoryRecord.Struct, &eocdr);
 
-        try seekable.seekTo(pos);
-        try readOneNoEof(stream, EndOfCentralDirectoryRecord.Struct, &eocdr);
+      const signature = EndOfCentralDirectoryRecord.signature.read(&eocdr);
 
-        const signature = EndOfCentralDirectoryRecord.signature.read(&eocdr);
+      if (signature == 0x06054b50) {
+        // signature seems correct, but it could actually be part of the
+        // comment. check (what would be) the commentLength and see if it
+        // points to the end of the file.
+        // FIXME - that could be part of the comment as well? but if that was
+        // the case, is it even possible to find the central directory?
+        const commentLength = EndOfCentralDirectoryRecord.commentLength.read(&eocdr);
 
-        if (signature == 0x06054b50) {
-          // signature seems correct, but it could actually be part of the
-          // comment. check (what would be) the commentLength and see if it
-          // points to the end of the file.
-          // FIXME - that could be part of the comment as well? but if that was
-          // the case, is it even possible to find the central directory?
-          const commentLength = EndOfCentralDirectoryRecord.commentLength.read(&eocdr);
-
-          if (pos + @sizeOf(EndOfCentralDirectoryRecord.Struct) + usize(commentLength) == endPos) {
-            return CentralDirectoryInfo{
-              .offset = EndOfCentralDirectoryRecord.cdOffset.read(&eocdr),
-              .size = EndOfCentralDirectoryRecord.cdSize.read(&eocdr),
-            };
-          }
+        if (pos + @sizeOf(EndOfCentralDirectoryRecord.Struct) + usize(commentLength) == endPos) {
+          return CentralDirectoryInfo{
+            .offset = EndOfCentralDirectoryRecord.cdOffset.read(&eocdr),
+            .size = EndOfCentralDirectoryRecord.cdSize.read(&eocdr),
+          };
         }
-
-        pos -= 1; // ew
       }
 
-      return Error.NotZipFile;
+      pos -= 1; // ew
     }
 
-    pub fn walkInit(
-      cdInfo: CentralDirectoryInfo,
-      walkState: *ZipWalkState,
-      filenameBuf: []u8,
-    ) void {
-      walkState.cdInfo = cdInfo;
-      walkState.relPos = 0;
+    return Error.NotZipFile;
+  }
+
+  pub fn walkInit(
+    cdInfo: CentralDirectoryInfo,
+    walkState: *ZipWalkState,
+    filenameBuf: []u8,
+  ) void {
+    walkState.cdInfo = cdInfo;
+    walkState.relPos = 0;
+    walkState.file = null;
+    walkState.filenameBuf = filenameBuf;
+  }
+
+  pub fn walk(
+    walkState: *ZipWalkState,
+    stream: InStream,
+    seekable: SeekableStream,
+  ) !?*ZipWalkFile {
+    if (walkState.relPos >= walkState.cdInfo.size) {
       walkState.file = null;
-      walkState.filenameBuf = filenameBuf;
-    }
-
-    pub fn walk(
-      walkState: *ZipWalkState,
-      stream: InStream,
-      seekable: MySeekableStream,
-    ) !?*ZipWalkFile {
-      if (walkState.relPos >= walkState.cdInfo.size) {
-        walkState.file = null;
-        return null;
-      }
-
-      var fileHeader: CentralDirectoryFileHeader.Struct = undefined;
-
-      var pos = walkState.cdInfo.offset + walkState.relPos;
-      try seekable.seekTo(pos);
-      try readOneNoEof(stream, CentralDirectoryFileHeader.Struct, &fileHeader);
-
-      const signature = CentralDirectoryFileHeader.signature.read(&fileHeader);
-
-      if (signature != 0x02014b50) {
-        return Error.Corrupt;
-      }
-
-      // TODO - make sure disk number is 0 or whatever
-      const fileNameLength = CentralDirectoryFileHeader.fileNameLength.read(&fileHeader);
-      const extraFieldLength = CentralDirectoryFileHeader.extraFieldLength.read(&fileHeader);
-      const fileCommentLength = CentralDirectoryFileHeader.fileCommentLength.read(&fileHeader);
-
-      pos = walkState.cdInfo.offset + walkState.relPos + @sizeOf(CentralDirectoryFileHeader.Struct);
-      try seekable.seekTo(pos);
-
-      // FIXME - error checking or something?
-      const n = try stream.read(walkState.filenameBuf[0..fileNameLength]);
-
-      const compressionMethod = CentralDirectoryFileHeader.compressionMethod.read(&fileHeader);
-      const compressedSize = CentralDirectoryFileHeader.compressedSize.read(&fileHeader);
-      const uncompressedSize = CentralDirectoryFileHeader.uncompressedSize.read(&fileHeader);
-      const offset = CentralDirectoryFileHeader.relativeOffsetOfLocalFileHeader.read(&fileHeader);
-
-      walkState.file = ZipWalkFile{
-        .filename = walkState.filenameBuf[0..n],
-        .info = ZipFileInfo{
-          .compressionMethod = compressionMethod,
-          .compressedSize = compressedSize,
-          .uncompressedSize = uncompressedSize,
-          .offset = offset + @sizeOf(LocalFileHeader.Struct) + fileNameLength + extraFieldLength,
-        },
-      };
-
-      walkState.relPos += @sizeOf(CentralDirectoryFileHeader.Struct);
-      walkState.relPos += fileNameLength;
-      walkState.relPos += extraFieldLength;
-      walkState.relPos += fileCommentLength;
-      return &walkState.file.?;
-    }
-
-    pub fn find_file_in_directory(
-      cdInfo: CentralDirectoryInfo,
-      stream: InStream,
-      seekable: MySeekableStream,
-      filename: []const u8,
-    ) !?ZipFileInfo {
-      var walkState: ZipWalkState = undefined;
-
-      // FIXME - filenames can be longer than 260 bytes. (unfortunately there's
-      // no easy fix for this other than using a bigger buffer)
-      var filenameBuf: [260]u8 = undefined;
-
-      walkInit(cdInfo, &walkState, filenameBuf[0..]);
-
-      while (try walk(&walkState, stream, seekable)) |file| {
-        if (std.mem.eql(u8, filename, file.filename)) {
-          return file.info;
-        }
-      }
-
       return null;
     }
 
-    pub fn find_file(
-      stream: InStream,
-      seekable: MySeekableStream,
-      filename: []const u8,
-    ) !?ZipFileInfo {
-      const isZipFile = try is_zip_file(stream, seekable);
+    var fileHeader: CentralDirectoryFileHeader.Struct = undefined;
 
-      if (!isZipFile) {
-        return Error.NotZipFile;
-      }
+    var pos = walkState.cdInfo.offset + walkState.relPos;
+    try seekable.seekTo(pos);
+    try readOneNoEof(stream, CentralDirectoryFileHeader.Struct, &fileHeader);
 
-      const cdInfo = try find_central_directory(stream, seekable);
+    const signature = CentralDirectoryFileHeader.signature.read(&fileHeader);
 
-      return try find_file_in_directory(cdInfo, stream, seekable, filename);
+    if (signature != 0x02014b50) {
+      return Error.Corrupt;
     }
-  };
-}
+
+    // TODO - make sure disk number is 0 or whatever
+    const fileNameLength = CentralDirectoryFileHeader.fileNameLength.read(&fileHeader);
+    const extraFieldLength = CentralDirectoryFileHeader.extraFieldLength.read(&fileHeader);
+    const fileCommentLength = CentralDirectoryFileHeader.fileCommentLength.read(&fileHeader);
+
+    pos = walkState.cdInfo.offset + walkState.relPos + @sizeOf(CentralDirectoryFileHeader.Struct);
+    try seekable.seekTo(pos);
+
+    // FIXME - error checking or something?
+    const n = try stream.read(walkState.filenameBuf[0..fileNameLength]);
+
+    const compressionMethod = CentralDirectoryFileHeader.compressionMethod.read(&fileHeader);
+    const compressedSize = CentralDirectoryFileHeader.compressedSize.read(&fileHeader);
+    const uncompressedSize = CentralDirectoryFileHeader.uncompressedSize.read(&fileHeader);
+    const offset = CentralDirectoryFileHeader.relativeOffsetOfLocalFileHeader.read(&fileHeader);
+
+    walkState.file = ZipWalkFile{
+      .filename = walkState.filenameBuf[0..n],
+      .info = ZipFileInfo{
+        .compressionMethod = compressionMethod,
+        .compressedSize = compressedSize,
+        .uncompressedSize = uncompressedSize,
+        .offset = offset + @sizeOf(LocalFileHeader.Struct) + fileNameLength + extraFieldLength,
+      },
+    };
+
+    walkState.relPos += @sizeOf(CentralDirectoryFileHeader.Struct);
+    walkState.relPos += fileNameLength;
+    walkState.relPos += extraFieldLength;
+    walkState.relPos += fileCommentLength;
+    return &walkState.file.?;
+  }
+
+  pub fn find_file_in_directory(
+    cdInfo: CentralDirectoryInfo,
+    stream: InStream,
+    seekable: SeekableStream,
+    filename: []const u8,
+  ) !?ZipFileInfo {
+    var walkState: ZipWalkState = undefined;
+
+    // FIXME - filenames can be longer than 260 bytes. (unfortunately there's
+    // no easy fix for this other than using a bigger buffer)
+    var filenameBuf: [260]u8 = undefined;
+
+    walkInit(cdInfo, &walkState, filenameBuf[0..]);
+
+    while (try walk(&walkState, stream, seekable)) |file| {
+      if (std.mem.eql(u8, filename, file.filename)) {
+        return file.info;
+      }
+    }
+
+    return null;
+  }
+
+  pub fn find_file(
+    stream: InStream,
+    seekable: SeekableStream,
+    filename: []const u8,
+  ) !?ZipFileInfo {
+    const isZipFile = try is_zip_file(stream, seekable);
+
+    if (!isZipFile) {
+      return Error.NotZipFile;
+    }
+
+    const cdInfo = try find_central_directory(stream, seekable);
+
+    return try find_file_in_directory(cdInfo, stream, seekable, filename);
+  }
+};
 
 pub const ZipWalkState = struct{
   cdInfo: CentralDirectoryInfo,
