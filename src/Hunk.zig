@@ -30,32 +30,32 @@ const StackAllocator = @import("traits/StackAllocator.zig").StackAllocator;
 // i haven't even tried to use the high_allocator so there's a good chance
 // the code is wrong
 
-pub const DoubleStackAllocator = struct{
-  low_stack: StackAllocator,
-  high_stack: StackAllocator,
+pub const Hunk = struct{
+  low: StackAllocator,
+  high: StackAllocator,
   low_used: usize,
   high_used: usize,
   buffer: []u8,
 
-  pub fn init(buffer: []u8) DoubleStackAllocator {
-    return DoubleStackAllocator{
-      .low_stack = StackAllocator{
+  pub fn init(buffer: []u8) Hunk {
+    return Hunk{
+      .low = StackAllocator{
         .allocator = Allocator{
-          .allocFn = alloc_low,
-          .reallocFn = realloc_low,
+          .allocFn = allocLow,
+          .reallocFn = reallocLow,
           .freeFn = free,
         },
-        .getMarkFn = get_low_mark,
-        .freeToMarkFn = free_to_low_mark,
+        .getMarkFn = getLowMark,
+        .freeToMarkFn = freeToLowMark,
       },
-      .high_stack = StackAllocator{
+      .high = StackAllocator{
         .allocator = Allocator{
-          .allocFn = alloc_high,
-          .reallocFn = realloc_high,
+          .allocFn = allocHigh,
+          .reallocFn = reallocHigh,
           .freeFn = free,
         },
-        .getMarkFn = get_high_mark,
-        .freeToMarkFn = free_to_high_mark,
+        .getMarkFn = getHighMark,
+        .freeToMarkFn = freeToHighMark,
       },
       .low_used = 0,
       .high_used = 0,
@@ -63,9 +63,9 @@ pub const DoubleStackAllocator = struct{
     };
   }
 
-  fn alloc_low(allocator: *Allocator, n: usize, alignment: u29) ![]u8 {
+  fn allocLow(allocator: *Allocator, n: usize, alignment: u29) ![]u8 {
     const stack_allocator = @fieldParentPtr(StackAllocator, "allocator", allocator);
-    const self = @fieldParentPtr(DoubleStackAllocator, "low_stack", stack_allocator);
+    const self = @fieldParentPtr(Hunk, "low", stack_allocator);
     const addr = @ptrToInt(self.buffer.ptr) + self.low_used;
     const rem = @rem(addr, alignment);
     const march_forward_bytes = if (rem == 0) 0 else (alignment - rem);
@@ -79,9 +79,9 @@ pub const DoubleStackAllocator = struct{
     return result;
   }
 
-  fn alloc_high(allocator: *Allocator, n: usize, alignment: u29) ![]u8 {
+  fn allocHigh(allocator: *Allocator, n: usize, alignment: u29) ![]u8 {
     const stack_allocator = @fieldParentPtr(StackAllocator, "allocator", allocator);
-    const self = @fieldParentPtr(DoubleStackAllocator, "high_stack", stack_allocator);
+    const self = @fieldParentPtr(Hunk, "high", stack_allocator);
     const addr = @ptrToInt(self.buffer.ptr) + self.buffer.len - self.high_used;
     const rem = @rem(addr, alignment);
     const march_backward_bytes = rem;
@@ -96,21 +96,21 @@ pub const DoubleStackAllocator = struct{
     return result;
   }
 
-  fn realloc_low(allocator: *Allocator, old_mem: []u8, new_size: usize, alignment: u29) ![]u8 {
+  fn reallocLow(allocator: *Allocator, old_mem: []u8, new_size: usize, alignment: u29) ![]u8 {
     if (new_size <= old_mem.len) {
       return old_mem[0..new_size];
     } else {
-      const result = try alloc_low(allocator, new_size, alignment);
+      const result = try allocLow(allocator, new_size, alignment);
       std.mem.copy(u8, result, old_mem);
       return result;
     }
   }
 
-  fn realloc_high(allocator: *Allocator, old_mem: []u8, new_size: usize, alignment: u29) ![]u8 {
+  fn reallocHigh(allocator: *Allocator, old_mem: []u8, new_size: usize, alignment: u29) ![]u8 {
     if (new_size <= old_mem.len) {
       return old_mem[0..new_size];
     } else {
-      const result = try alloc_high(allocator, new_size, alignment);
+      const result = try allocHigh(allocator, new_size, alignment);
       std.mem.copy(u8, result, old_mem);
       return result;
     }
@@ -120,18 +120,18 @@ pub const DoubleStackAllocator = struct{
     // std.debug.warn("Warning: StackAllocator free function does nothing!\n");
   }
 
-  fn get_low_mark(stack_allocator: *StackAllocator) usize {
-    const self = @fieldParentPtr(DoubleStackAllocator, "low_stack", stack_allocator);
+  fn getLowMark(stack_allocator: *StackAllocator) usize {
+    const self = @fieldParentPtr(Hunk, "low", stack_allocator);
     return self.low_used;
   }
 
-  fn get_high_mark(stack_allocator: *StackAllocator) usize {
-    const self = @fieldParentPtr(DoubleStackAllocator, "high_stack", stack_allocator);
+  fn getHighMark(stack_allocator: *StackAllocator) usize {
+    const self = @fieldParentPtr(Hunk, "high", stack_allocator);
     return self.high_used;
   }
 
-  fn free_to_low_mark(stack_allocator: *StackAllocator, pos: usize) void {
-    const self = @fieldParentPtr(DoubleStackAllocator, "low_stack", stack_allocator);
+  fn freeToLowMark(stack_allocator: *StackAllocator, pos: usize) void {
+    const self = @fieldParentPtr(Hunk, "low", stack_allocator);
     std.debug.assert(pos <= self.low_used);
     if (pos < self.low_used) {
       if (builtin.mode == builtin.Mode.Debug) {
@@ -141,8 +141,8 @@ pub const DoubleStackAllocator = struct{
     }
   }
 
-  fn free_to_high_mark(stack_allocator: *StackAllocator, pos: usize) void {
-    const self = @fieldParentPtr(DoubleStackAllocator, "high_stack", stack_allocator);
+  fn freeToHighMark(stack_allocator: *StackAllocator, pos: usize) void {
+    const self = @fieldParentPtr(Hunk, "high", stack_allocator);
     std.debug.assert(pos <= self.high_used);
     if (pos < self.high_used) {
       if (builtin.mode == builtin.Mode.Debug) {
@@ -155,39 +155,36 @@ pub const DoubleStackAllocator = struct{
   }
 };
 
-test "DoubleStackAllocator" {
+test "Hunk" {
   // test a few random operations. very low coverage. write more later
   var buf: [100]u8 = undefined;
-  var hunk = DoubleStackAllocator.init(buf[0..]);
+  var hunk = Hunk.init(buf[0..]);
 
-  const low_stack = &hunk.low_stack;
-  const high_stack = &hunk.high_stack;
+  const high_mark = hunk.high.getMark();
 
-  const high_mark = high_stack.get_mark();
-
-  _ = try low_stack.allocator.alloc(u8, 7);
-  _ = try high_stack.allocator.alloc(u8, 8);
+  _ = try hunk.low.allocator.alloc(u8, 7);
+  _ = try hunk.high.allocator.alloc(u8, 8);
 
   std.debug.assert(hunk.low_used == 7);
   std.debug.assert(hunk.high_used == 8);
 
-  _ = try high_stack.allocator.alloc(u8, 8);
+  _ = try hunk.high.allocator.alloc(u8, 8);
 
   std.debug.assert(hunk.high_used == 16);
 
-  const low_mark = low_stack.get_mark();
+  const low_mark = hunk.low.getMark();
 
-  _ = try low_stack.allocator.alloc(u8, 100 - 7 - 16);
+  _ = try hunk.low.allocator.alloc(u8, 100 - 7 - 16);
 
   std.debug.assert(hunk.low_used == 100 - 16);
 
-  std.debug.assertError(high_stack.allocator.alloc(u8, 1), error.OutOfMemory);
+  std.debug.assertError(hunk.high.allocator.alloc(u8, 1), error.OutOfMemory);
 
-  low_stack.free_to_mark(low_mark);
+  hunk.low.freeToMark(low_mark);
 
-  _ = try high_stack.allocator.alloc(u8, 1);
+  _ = try hunk.high.allocator.alloc(u8, 1);
 
-  high_stack.free_to_mark(high_mark);
+  hunk.high.freeToMark(high_mark);
 
   std.debug.assert(hunk.high_used == 0);
 }

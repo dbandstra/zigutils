@@ -6,13 +6,12 @@ pub const tga = @import("image/tga.zig");
 pub const StackAllocator = @import("traits/StackAllocator.zig").StackAllocator;
 
 pub const ArrayListOutStream = @import("ArrayListOutStream.zig").ArrayListOutStream;
-pub const DoubleStackAllocator = @import("DoubleStackAllocator.zig").DoubleStackAllocator;
+pub const Hunk = @import("Hunk.zig").Hunk;
 pub const InflateInStream = @import("InflateInStream.zig").InflateInStream;
 pub const Inflater = @import("Inflater.zig").Inflater;
 pub const LineReader = @import("LineReader.zig").LineReader;
 pub const OwnerId = @import("OwnerId.zig").OwnerId;
 pub const ScanZip = @import("ScanZip.zig").ScanZip;
-pub const SingleStackAllocator = @import("SingleStackAllocator.zig").SingleStackAllocator;
 const SliceStream = @import("SliceStream.zig");
 pub const SliceWithCursor = SliceStream.SliceWithCursor;
 pub const SliceInStream2 = SliceStream.SliceInStream2;
