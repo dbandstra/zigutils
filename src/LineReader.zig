@@ -10,9 +10,15 @@ const FileInStreamAdapter = @import("streams/File_InStream.zig").FileInStreamAda
 //
 
 pub const LineReader = struct {
+  const ReadLineFromStdinError =
+    error{StdInUnavailable} ||
+    error{EndOfStream} ||
+    std.os.File.ReadError ||
+    OutStream.Error; // if this happens, check your outstream adapter's stored write_error
+
   // TODO - move this out... too specialized
   // TODO - if read failed, get the actual error from stdin and add it to error return type
-  pub fn read_line_from_stdin(out_stream: OutStream) !void {
+  pub fn read_line_from_stdin(out_stream: OutStream) ReadLineFromStdinError!void {
     var stdin = std.io.getStdIn() catch return error.StdInUnavailable;
     var file_in_stream_adapter = FileInStreamAdapter.init(stdin);
     var in_stream = file_in_stream_adapter.inStream();
@@ -20,13 +26,21 @@ pub const LineReader = struct {
       if (err == InStream.Error.ReadError) {
         return file_in_stream_adapter.read_error.?;
       } else {
-        return err;
+        // ReadError is the only InStream error... by capturing it above
+        // we should not have to include it in the returned error set,
+        // but the compiler is unable to infer this
+        return @errSetCast(ReadLineFromStdinError, err);
       }
     };
   }
 
+  const ReadLineFromStreamError =
+    error{EndOfStream} || // readByte can return this
+    InStream.Error || // if this happens, check your instream adapter's stored read_error
+    OutStream.Error; // if this happens, check your outstream adapter's stored write_error
+
   // this function is split off so it can be tested
-  pub fn read_line_from_stream(in_stream: InStream, out_stream: OutStream) (InStream.Error || error{EndOfStream} || OutStream.Error)!void {
+  pub fn read_line_from_stream(in_stream: InStream, out_stream: OutStream) ReadLineFromStreamError!void {
     var failed: ?OutStream.Error = null;
 
     while (true) {
