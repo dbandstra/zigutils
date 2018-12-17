@@ -1,7 +1,7 @@
 const std = @import("std");
 
 pub const StackAllocator = struct{
-  const VTable = struct {
+  pub const VTable = struct {
     getMark: fn (impl: *c_void) usize,
     freeToMark: fn (impl: *c_void, pos: usize) void,
   };
@@ -11,14 +11,6 @@ pub const StackAllocator = struct{
 
   pub fn init(impl: var) @This() {
     const T = @typeOf(impl).Child;
-    return @This(){
-      .vtable = comptime vtable.populate(VTable, T, T),
-      .impl = @ptrCast(*c_void, impl),
-    };
-  }
-
-  pub fn initCustom(impl: var, vtable_obj: var) @This() {
-    const T = @typeOf(vtable_obj).Child;
     return @This(){
       .vtable = comptime vtable.populate(VTable, T, T),
       .impl = @ptrCast(*c_void, impl),

@@ -4,7 +4,7 @@ const InStream = @import("../streams/InStream.zig").InStream;
 const SeekableStream = @import("../streams/SeekableStream.zig").SeekableStream;
 const FileInStreamAdapter = @import("../streams/File_InStream.zig").FileInStreamAdapter;
 const FileSeekableStreamAdapter = @import("../streams/File_SeekableStream.zig").FileSeekableStreamAdapter;
-const SingleStackAllocator = @import("../SingleStackAllocator.zig").SingleStackAllocator;
+const Hunk = @import("../Hunk.zig").Hunk;
 const ScanZip = @import("../ScanZip.zig").ScanZip;
 const COMPRESSION_DEFLATE = @import("../ScanZip.zig").COMPRESSION_DEFLATE;
 const ZipWalkState = @import("../ScanZip.zig").ZipWalkState;
@@ -13,10 +13,10 @@ const InflateInStream = @import("../InflateInStream.zig").InflateInStream;
 
 test "ZipTest: locate and decompress a file from a zip archive" {
   var memory: [100 * 1024]u8 = undefined;
-  var ssa = SingleStackAllocator.init(memory[0..]);
-  var allocator = ssa.allocator();
-  const mark = ssa.getMark();
-  defer ssa.freeToMark(mark);
+  var hunk = Hunk.init(memory[0..]);
+  var allocator = hunk.lowAllocator();
+  const mark = hunk.getLowMark();
+  defer hunk.freeToLowMark(mark);
 
   const uncompressedData = @embedFile("../testdata/adler32.c");
 

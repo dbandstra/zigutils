@@ -97,13 +97,13 @@ pub const InflateInStream = struct {
 test "InflateInStream: works on valid input" {
   const IConstSlice = @import("streams/IConstSlice.zig").IConstSlice;
   const IConstSliceInStreamAdapter = @import("streams/IConstSlice_InStream.zig").IConstSliceInStreamAdapter;
-  const SingleStackAllocator = @import("SingleStackAllocator.zig").SingleStackAllocator;
+  const Hunk = @import("Hunk.zig").Hunk;
 
   var memory: [100 * 1024]u8 = undefined;
-  var ssa = SingleStackAllocator.init(memory[0..]);
-  var allocator = ssa.allocator();
-  const mark = ssa.getMark();
-  defer ssa.freeToMark(mark);
+  var hunk = Hunk.init(memory[0..]);
+  var allocator = hunk.lowAllocator();
+  const mark = hunk.getLowMark();
+  defer hunk.freeToLowMark(mark);
 
   const compressedData = @embedFile("testdata/adler32.c-compressed");
   const uncompressedData = @embedFile("testdata/adler32.c");
@@ -136,13 +136,13 @@ test "InflateInStream: works on valid input" {
 test "InflateInStream: fails with InvalidStream on bad input" {
   const IConstSlice = @import("streams/IConstSlice.zig").IConstSlice;
   const IConstSliceInStreamAdapter = @import("streams/IConstSlice_InStream.zig").IConstSliceInStreamAdapter;
-  const SingleStackAllocator = @import("SingleStackAllocator.zig").SingleStackAllocator;
+  const Hunk = @import("Hunk.zig").Hunk;
 
   var memory: [100 * 1024]u8 = undefined;
-  var ssa = SingleStackAllocator.init(memory[0..]);
-  var allocator = ssa.allocator();
-  const mark = ssa.getMark();
-  defer ssa.freeToMark(mark);
+  var hunk = Hunk.init(memory[0..]);
+  var allocator = hunk.lowAllocator();
+  const mark = hunk.getLowMark();
+  defer hunk.freeToLowMark(mark);
 
   const uncompressedData = @embedFile("testdata/adler32.c");
 
@@ -167,13 +167,13 @@ test "InflateInStream: fails with InvalidStream on bad input" {
 test "InflateInStream: fails with InvalidStream on bad input (but with dynamic dispatch)" {
   const IConstSlice = @import("streams/IConstSlice.zig").IConstSlice;
   const IConstSliceInStreamAdapter = @import("streams/IConstSlice_InStream.zig").IConstSliceInStreamAdapter;
-  const SingleStackAllocator = @import("SingleStackAllocator.zig").SingleStackAllocator;
+  const Hunk = @import("Hunk.zig").Hunk;
 
   var memory: [100 * 1024]u8 = undefined;
-  var ssa = SingleStackAllocator.init(memory[0..]);
-  var allocator = ssa.allocator();
-  const mark = ssa.getMark();
-  defer ssa.freeToMark(mark);
+  var hunk = Hunk.init(memory[0..]);
+  var allocator = hunk.lowAllocator();
+  const mark = hunk.getLowMark();
+  defer hunk.freeToLowMark(mark);
 
   const uncompressedData = @embedFile("testdata/adler32.c");
 

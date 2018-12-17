@@ -110,15 +110,15 @@ pub const ArrayListOutStream = struct{
 };
 
 test "ArrayListOutStream" {
-  const SingleStackAllocator = @import("SingleStackAllocator.zig").SingleStackAllocator;
+  const Hunk = @import("Hunk.zig").Hunk;
 
   var memory: [1024]u8 = undefined;
-  var ssa = SingleStackAllocator.init(memory[0..]);
-  const allocator = ssa.allocator();
-  const mark = ssa.getMark();
-  defer ssa.freeToMark(mark);
+  var hunk = Hunk.init(memory[0..]);
 
-  var array_list = ArrayList(u8).init(allocator);
+  const mark = hunk.getLowMark();
+  defer hunk.freeToLowMark(mark);
+
+  var array_list = ArrayList(u8).init(hunk.lowAllocator());
   defer array_list.deinit();
 
   var alos = ArrayListOutStream.init(&array_list);

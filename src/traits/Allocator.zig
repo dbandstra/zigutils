@@ -24,14 +24,6 @@ pub const Allocator = struct {
     };
   }
 
-  pub fn initCustom(impl: var, vtable_obj: var) @This() {
-    const T = @typeOf(vtable_obj).Child;
-    return @This(){
-      .vtable = comptime vtable.populate(VTable, T, T),
-      .impl = @ptrCast(*c_void, impl),
-    };
-  }
-
   /// Call `destroy` with the result
   /// TODO this is deprecated. use createOne instead
   pub fn create(self: @This(), init_: var) Error!*@typeOf(init_) {
