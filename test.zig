@@ -6,7 +6,6 @@ comptime {
   _ = @import("src/SingleStackAllocator.zig");
   _ = @import("src/image/tga_test.zig");
   _ = @import("src/streams/IConstSlice.zig");
-  _ = @import("src/streams/IFile.zig");
   _ = @import("src/streams/ISlice.zig");
   _ = @import("src/streams/InStream.zig");
   _ = @import("src/streams/OutStream.zig");
