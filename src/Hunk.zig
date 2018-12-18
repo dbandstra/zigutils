@@ -6,8 +6,6 @@ const Allocator = @import("traits/Allocator.zig").Allocator;
 pub const HunkSide = struct{
   pub const VTable = struct{
     alloc: fn (self: *Hunk, byte_count: usize, alignment: u29) Allocator.Error![]u8,
-    realloc: fn (self: *Hunk, old_mem: []u8, new_byte_count: usize, alignment: u29) Allocator.Error![]u8,
-    free: fn (self: *Hunk, old_mem: []u8) void,
     getMark: fn (self: *Hunk) usize,
     freeToMark: fn (self: *Hunk, pos: usize) void,
   };
@@ -20,11 +18,17 @@ pub const HunkSide = struct{
   }
 
   pub fn realloc(self: *HunkSide, old_mem: []u8, new_byte_count: usize, alignment: u29) Allocator.Error![]u8 {
-    return self.vtable.realloc(self.hunk, old_mem, new_byte_count, alignment);
+    if (new_byte_count <= old_mem.len) {
+      return old_mem[0..new_byte_count];
+    } else {
+      const result = try self.vtable.alloc(self.hunk, new_byte_count, alignment);
+      std.mem.copy(u8, result, old_mem);
+      return result;
+    }
   }
 
   pub fn free(self: *HunkSide, old_mem: []u8) void {
-    self.vtable.free(self.hunk, old_mem);
+    // do nothing
   }
 
   pub fn getMark(self: *HunkSide) usize {
@@ -57,8 +61,6 @@ pub const Hunk = struct{
     const GlobalStorage = struct {
       const vtable = HunkSide.VTable{
         .alloc = allocLow,
-        .realloc = reallocLow,
-        .free = _free,
         .getMark = getLowMark,
         .freeToMark = freeToLowMark,
       };
@@ -73,8 +75,6 @@ pub const Hunk = struct{
     const GlobalStorage = struct {
       const vtable = HunkSide.VTable{
         .alloc = allocHigh,
-        .realloc = reallocHigh,
-        .free = _free,
         .getMark = getHighMark,
         .freeToMark = freeToHighMark,
       };
@@ -112,30 +112,6 @@ pub const Hunk = struct{
     const result = self.buffer[start..start + n];
     self.high_used = new_high_used;
     return result;
-  }
-
-  pub fn reallocLow(self: *Hunk, old_mem: []u8, new_size: usize, alignment: u29) ![]u8 {
-    if (new_size <= old_mem.len) {
-      return old_mem[0..new_size];
-    } else {
-      const result = try self.allocLow(new_size, alignment);
-      std.mem.copy(u8, result, old_mem);
-      return result;
-    }
-  }
-
-  pub fn reallocHigh(self: *Hunk, old_mem: []u8, new_size: usize, alignment: u29) ![]u8 {
-    if (new_size <= old_mem.len) {
-      return old_mem[0..new_size];
-    } else {
-      const result = try self.allocHigh(new_size, alignment);
-      std.mem.copy(u8, result, old_mem);
-      return result;
-    }
-  }
-
-  fn _free(self: *Hunk, bytes: []u8) void {
-    // std.debug.warn("Warning: Hunk free function does nothing!\n");
   }
 
   pub fn getLowMark(self: *Hunk) usize {
