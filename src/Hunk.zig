@@ -2,7 +2,6 @@ const builtin = @import("builtin");
 const std = @import("std");
 
 const Allocator = @import("traits/Allocator.zig").Allocator;
-const StackAllocator = @import("traits/StackAllocator.zig").StackAllocator;
 
 pub const HunkSide = struct{
   pub const VTable = struct{
@@ -136,7 +135,7 @@ pub const Hunk = struct{
   }
 
   fn _free(self: *Hunk, bytes: []u8) void {
-    // std.debug.warn("Warning: StackAllocator free function does nothing!\n");
+    // std.debug.warn("Warning: Hunk free function does nothing!\n");
   }
 
   pub fn getLowMark(self: *Hunk) usize {
