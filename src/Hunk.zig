@@ -17,19 +17,27 @@ pub const HunkSide = struct{
       .hunk = hunk,
       .vtable = vtable,
       .allocator = std.mem.Allocator{
-        .allocFn = alloc,
-        .reallocFn = realloc,
-        .freeFn = free,
+        .allocFn = allocFn,
+        .reallocFn = reallocFn,
+        .freeFn = freeFn,
       },
     };
   }
 
-  pub fn alloc(allocator: *std.mem.Allocator, n: usize, alignment: u29) std.mem.Allocator.Error![]u8 {
+  pub fn getMark(self: HunkSide) usize {
+    return self.vtable.getMark(self.hunk);
+  }
+
+  pub fn freeToMark(self: HunkSide, pos: usize) void {
+    self.vtable.freeToMark(self.hunk, pos);
+  }
+
+  fn allocFn(allocator: *std.mem.Allocator, n: usize, alignment: u29) std.mem.Allocator.Error![]u8 {
     const self = @fieldParentPtr(HunkSide, "allocator", allocator);
     return self.vtable.alloc(self.hunk, n, alignment);
   }
 
-  pub fn realloc(allocator: *std.mem.Allocator, old_mem: []u8, new_byte_count: usize, alignment: u29) std.mem.Allocator.Error![]u8 {
+  fn reallocFn(allocator: *std.mem.Allocator, old_mem: []u8, new_byte_count: usize, alignment: u29) std.mem.Allocator.Error![]u8 {
     const self = @fieldParentPtr(HunkSide, "allocator", allocator);
     if (new_byte_count <= old_mem.len) {
       return old_mem[0..new_byte_count];
@@ -40,16 +48,8 @@ pub const HunkSide = struct{
     }
   }
 
-  pub fn free(allocator: *std.mem.Allocator, old_mem: []u8) void {
+  fn freeFn(allocator: *std.mem.Allocator, old_mem: []u8) void {
     // do nothing
-  }
-
-  pub fn getMark(self: *HunkSide) usize {
-    return self.vtable.getMark(self.hunk);
-  }
-
-  pub fn freeToMark(self: *HunkSide, pos: usize) void {
-    self.vtable.freeToMark(self.hunk, pos);
   }
 };
 
