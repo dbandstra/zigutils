@@ -114,11 +114,12 @@ test "ArrayListOutStream" {
 
   var memory: [1024]u8 = undefined;
   var hunk = Hunk.init(memory[0..]);
+  var hunk_side = hunk.low();
 
-  const mark = hunk.getLowMark();
-  defer hunk.freeToLowMark(mark);
+  const mark = hunk_side.getMark();
+  defer hunk_side.freeToMark(mark);
 
-  var array_list = ArrayList(u8).init(hunk.lowAllocator());
+  var array_list = ArrayList(u8).init(hunk_side.allocator());
   defer array_list.deinit();
 
   var alos = ArrayListOutStream.init(&array_list);

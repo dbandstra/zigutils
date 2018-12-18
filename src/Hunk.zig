@@ -4,28 +4,42 @@ const std = @import("std");
 const Allocator = @import("traits/Allocator.zig").Allocator;
 const StackAllocator = @import("traits/StackAllocator.zig").StackAllocator;
 
-// this is like FixedBufferAllocator, but supports freeing.
-// also, it allows allocating at either end of the buffer, kind of like two
-// stacks.
+pub const HunkSide = struct{
+  pub const VTable = struct{
+    alloc: fn (self: *Hunk, byte_count: usize, alignment: u29) Allocator.Error![]u8,
+    realloc: fn (self: *Hunk, old_mem: []u8, new_byte_count: usize, alignment: u29) Allocator.Error![]u8,
+    free: fn (self: *Hunk, old_mem: []u8) void,
+    getMark: fn (self: *Hunk) usize,
+    freeToMark: fn (self: *Hunk, pos: usize) void,
+  };
 
-// maybe rename `low_allocator` to just `allocator`, so the high allocator
-// is more like a bonus feature?
+  hunk: *Hunk,
+  vtable: *const VTable,
 
-// you can allocate from either end of the buffer. typically, you would
-// allocate persistent things at the low end, and temporary things at the
-// high end.
-// you can't free allocations directly, but you can clear the entire
-// buffer to a previous position.
-// low_used and high_used both count from 0, but high_used is actually counting
-// back from the end of the buffer.
-// the buffer is full when (buffer.len - low_used - high_used) is too small
-// to fit a new allocation.
-// this is inspired by the hunk system in Quake by id Software.
+  pub fn alloc(self: *HunkSide, n: usize, alignment: u29) Allocator.Error![]u8 {
+    return self.vtable.alloc(self.hunk, n, alignment);
+  }
 
-// TODO - return errors instead of crashing
-// TODO - write tests
-// i haven't even tried to use the high_allocator so there's a good chance
-// the code is wrong
+  pub fn realloc(self: *HunkSide, old_mem: []u8, new_byte_count: usize, alignment: u29) Allocator.Error![]u8 {
+    return self.vtable.realloc(self.hunk, old_mem, new_byte_count, alignment);
+  }
+
+  pub fn free(self: *HunkSide, old_mem: []u8) void {
+    self.vtable.free(self.hunk, old_mem);
+  }
+
+  pub fn getMark(self: *HunkSide) usize {
+    return self.vtable.getMark(self.hunk);
+  }
+
+  pub fn freeToMark(self: *HunkSide, pos: usize) void {
+    self.vtable.freeToMark(self.hunk, pos);
+  }
+
+  pub fn allocator(self: *HunkSide) Allocator {
+    return Allocator.init(self);
+  }
+};
 
 pub const Hunk = struct{
   low_used: usize,
@@ -40,61 +54,39 @@ pub const Hunk = struct{
     };
   }
 
-  pub fn lowAllocator(self: *Hunk) Allocator {
+  pub fn low(self: *Hunk) HunkSide {
     const GlobalStorage = struct {
-      const vtable = Allocator.VTable{
-        .alloc = @ptrCast(fn (impl: *c_void, byte_count: usize, alignment: u29) Allocator.Error![]u8, allocLow),
-        .realloc = @ptrCast(fn (impl: *c_void, old_mem: []u8, new_byte_count: usize, alignment: u29) Allocator.Error![]u8, reallocLow),
-        .free = @ptrCast(fn (impl: *c_void, old_mem: []u8) void, free),
+      const vtable = HunkSide.VTable{
+        .alloc = allocLow,
+        .realloc = reallocLow,
+        .free = _free,
+        .getMark = getLowMark,
+        .freeToMark = freeToLowMark,
       };
     };
-    return Allocator{
-      .impl = @ptrCast(*c_void, self),
+    return HunkSide{
+      .hunk = self,
       .vtable = &GlobalStorage.vtable,
     };
   }
 
-  pub fn highAllocator(self: *Hunk) Allocator {
+  pub fn high(self: *Hunk) HunkSide {
     const GlobalStorage = struct {
-      const vtable = Allocator.VTable{
-        .alloc = @ptrCast(fn (impl: *c_void, byte_count: usize, alignment: u29) Allocator.Error![]u8, allocHigh),
-        .realloc = @ptrCast(fn (impl: *c_void, old_mem: []u8, new_byte_count: usize, alignment: u29) Allocator.Error![]u8, reallocHigh),
-        .free = @ptrCast(fn (impl: *c_void, old_mem: []u8) void, free),
+      const vtable = HunkSide.VTable{
+        .alloc = allocHigh,
+        .realloc = reallocHigh,
+        .free = _free,
+        .getMark = getHighMark,
+        .freeToMark = freeToHighMark,
       };
     };
-    return Allocator{
-      .impl = @ptrCast(*c_void, self),
+    return HunkSide{
+      .hunk = self,
       .vtable = &GlobalStorage.vtable,
     };
   }
 
-  pub fn lowStackAllocator(self: *Hunk) StackAllocator {
-    const GlobalStorage = struct {
-      const vtable = StackAllocator.VTable{
-        .getMark = @ptrCast(fn (impl: *c_void) usize, getLowMark),
-        .freeToMark = @ptrCast(fn (impl: *c_void, pos: usize) void, freeToLowMark),
-      };
-    };
-    return StackAllocator{
-      .impl = @ptrCast(*c_void, self),
-      .vtable = &GlobalStorage.vtable,
-    };
-  }
-
-  pub fn highStackAllocator(self: *Hunk) StackAllocator {
-    const GlobalStorage = struct {
-      const vtable = StackAllocator.VTable{
-        .getMark = @ptrCast(fn (impl: *c_void) usize, getHighMark),
-        .freeToMark = @ptrCast(fn (impl: *c_void, pos: usize) void, freeToHighMark),
-      };
-    };
-    return StackAllocator{
-      .impl = @ptrCast(*c_void, self),
-      .vtable = &GlobalStorage.vtable,
-    };
-  }
-
-  fn allocLow(self: *Hunk, n: usize, alignment: u29) ![]u8 {
+  pub fn allocLow(self: *Hunk, n: usize, alignment: u29) ![]u8 {
     const addr = @ptrToInt(self.buffer.ptr) + self.low_used;
     const rem = @rem(addr, alignment);
     const march_forward_bytes = if (rem == 0) 0 else (alignment - rem);
@@ -108,7 +100,7 @@ pub const Hunk = struct{
     return result;
   }
 
-  fn allocHigh(self: *Hunk, n: usize, alignment: u29) ![]u8 {
+  pub fn allocHigh(self: *Hunk, n: usize, alignment: u29) ![]u8 {
     const addr = @ptrToInt(self.buffer.ptr) + self.buffer.len - self.high_used;
     const rem = @rem(addr, alignment);
     const march_backward_bytes = rem;
@@ -123,7 +115,7 @@ pub const Hunk = struct{
     return result;
   }
 
-  fn reallocLow(self: *Hunk, old_mem: []u8, new_size: usize, alignment: u29) ![]u8 {
+  pub fn reallocLow(self: *Hunk, old_mem: []u8, new_size: usize, alignment: u29) ![]u8 {
     if (new_size <= old_mem.len) {
       return old_mem[0..new_size];
     } else {
@@ -133,7 +125,7 @@ pub const Hunk = struct{
     }
   }
 
-  fn reallocHigh(self: *Hunk, old_mem: []u8, new_size: usize, alignment: u29) ![]u8 {
+  pub fn reallocHigh(self: *Hunk, old_mem: []u8, new_size: usize, alignment: u29) ![]u8 {
     if (new_size <= old_mem.len) {
       return old_mem[0..new_size];
     } else {
@@ -143,19 +135,19 @@ pub const Hunk = struct{
     }
   }
 
-  fn free(self: *Hunk, bytes: []u8) void {
+  fn _free(self: *Hunk, bytes: []u8) void {
     // std.debug.warn("Warning: StackAllocator free function does nothing!\n");
   }
 
-  fn getLowMark(self: *Hunk) usize {
+  pub fn getLowMark(self: *Hunk) usize {
     return self.low_used;
   }
 
-  fn getHighMark(self: *Hunk) usize {
+  pub fn getHighMark(self: *Hunk) usize {
     return self.high_used;
   }
 
-  fn freeToLowMark(self: *Hunk, pos: usize) void {
+  pub fn freeToLowMark(self: *Hunk, pos: usize) void {
     std.debug.assert(pos <= self.low_used);
     if (pos < self.low_used) {
       if (builtin.mode == builtin.Mode.Debug) {
@@ -165,7 +157,7 @@ pub const Hunk = struct{
     }
   }
 
-  fn freeToHighMark(self: *Hunk, pos: usize) void {
+  pub fn freeToHighMark(self: *Hunk, pos: usize) void {
     std.debug.assert(pos <= self.high_used);
     if (pos < self.high_used) {
       if (builtin.mode == builtin.Mode.Debug) {
@@ -183,12 +175,12 @@ test "Hunk" {
   var buf: [100]u8 = undefined;
   var hunk = Hunk.init(buf[0..]);
 
-  const low_allocator = hunk.lowAllocator();
-  const high_allocator = hunk.highAllocator();
-  const low_stack = hunk.lowStackAllocator();
-  const high_stack = hunk.highStackAllocator();
+  var low = hunk.low();
+  var high = hunk.high();
+  const low_allocator = low.allocator();
+  const high_allocator = high.allocator();
 
-  const high_mark = high_stack.getMark();
+  const high_mark = high.getMark();
 
   _ = try low_allocator.alloc(u8, 7);
   _ = try high_allocator.alloc(u8, 8);
@@ -200,7 +192,7 @@ test "Hunk" {
 
   std.debug.assert(hunk.high_used == 16);
 
-  const low_mark = low_stack.getMark();
+  const low_mark = low.getMark();
 
   _ = try low_allocator.alloc(u8, 100 - 7 - 16);
 
@@ -208,11 +200,11 @@ test "Hunk" {
 
   std.debug.assertError(high_allocator.alloc(u8, 1), error.OutOfMemory);
 
-  low_stack.freeToMark(low_mark);
+  low.freeToMark(low_mark);
 
   _ = try high_allocator.alloc(u8, 1);
 
-  high_stack.freeToMark(high_mark);
+  high.freeToMark(high_mark);
 
   std.debug.assert(hunk.high_used == 0);
 }
