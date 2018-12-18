@@ -112,9 +112,11 @@ fn testLoadTga(
 ) !void {
   var memory: [100 * 1024]u8 = undefined;
   var hunk = Hunk.init(memory[0..]);
-  const allocator = &hunk.low.allocator;
-  const mark = hunk.low.getMark();
-  defer hunk.low.freeToMark(mark);
+  var hunk_side = hunk.low();
+  const allocator = &hunk_side.allocator;
+
+  const mark = hunk_side.getMark();
+  defer hunk_side.freeToMark(mark);
 
   var swc = my_io.SliceWithCursor.init(@embedFile(tgaFilename));
   var in_stream = my_io.SliceInStream2.init(&swc);

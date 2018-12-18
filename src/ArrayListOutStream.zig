@@ -1,5 +1,4 @@
 const std = @import("std");
-const ArrayList = std.ArrayList;
 
 //
 // creates an OutStream that writes to an ArrayList(u8).
@@ -7,13 +6,13 @@ const ArrayList = std.ArrayList;
 //
 
 pub const ArrayListOutStream = struct{
-  array_list: *ArrayList(u8),
+  array_list: *std.ArrayList(u8),
   stream: Stream,
 
   pub const Error = std.mem.Allocator.Error; // this is what ArrayList::appendSlice can throw
   pub const Stream = std.io.OutStream(Error);
 
-  pub fn init(array_list: *ArrayList(u8)) ArrayListOutStream {
+  pub fn init(array_list: *std.ArrayList(u8)) ArrayListOutStream {
     return ArrayListOutStream{
       .array_list = array_list,
       .stream = Stream{ .writeFn = writeFn },
@@ -32,11 +31,13 @@ test "ArrayListOutStream" {
 
   var memory: [1024]u8 = undefined;
   var hunk = Hunk.init(memory[0..]);
-  const allocator = &hunk.low.allocator;
-  const mark = hunk.low.getMark();
-  defer hunk.low.freeToMark(mark);
+  var hunk_side = hunk.low();
+  const allocator = &hunk_side.allocator;
 
-  var array_list = ArrayList(u8).init(allocator);
+  const mark = hunk_side.getMark();
+  defer hunk_side.freeToMark(mark);
+
+  var array_list = std.ArrayList(u8).init(allocator);
   defer array_list.deinit();
 
   var alos = ArrayListOutStream.init(&array_list);

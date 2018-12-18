@@ -11,9 +11,11 @@ const InflateInStream = @import("../InflateInStream.zig").InflateInStream;
 test "ZipTest: locate and decompress a file from a zip archive" {
   var memory: [100 * 1024]u8 = undefined;
   var hunk = Hunk.init(memory[0..]);
-  const allocator = &hunk.low.allocator;
-  const mark = hunk.low.getMark();
-  defer hunk.low.freeToMark(mark);
+  var hunk_side = hunk.low();
+  const allocator = &hunk_side.allocator;
+
+  const mark = hunk_side.getMark();
+  defer hunk_side.freeToMark(mark);
 
   const uncompressedData = @embedFile("../testdata/adler32.c");
 
