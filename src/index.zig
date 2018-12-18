@@ -5,7 +5,7 @@ pub const tga = @import("image/tga.zig");
 
 pub const ArrayListOutStream = @import("ArrayListOutStream.zig").ArrayListOutStream;
 pub const Hunk = @import("Hunk.zig").Hunk;
-pub const HunkSide = @import("HunkSide.zig").HunkSide;
+pub const HunkSide = @import("Hunk.zig").HunkSide;
 pub const InflateInStream = @import("InflateInStream.zig").InflateInStream;
 pub const Inflater = @import("Inflater.zig").Inflater;
 pub const LineReader = @import("LineReader.zig").LineReader;
