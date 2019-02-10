@@ -41,10 +41,12 @@ pub const Pixel = struct{
 pub fn createImage(allocator: *std.mem.Allocator, info: Info) !*Image {
   const pixels = try allocator.alloc(u8, info.width * info.height * Format.getBytesPerPixel(info.format));
 
-  var image = try allocator.create(Image{
+  var image = try allocator.create(Image);
+
+  image.* = Image{
     .info = info,
     .pixels = pixels,
-  });
+  };
 
   return image;
 }

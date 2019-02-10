@@ -129,9 +129,9 @@ fn testLoadTga(
     my_io.SliceSeekableStream.GetSeekPosError,
   );
   const tgaInfo = try LoadTgaType.preload(&in_stream.stream, &seekable.stream);
-  std.debug.assert(tgaInfo.image_type == params.expectedImageType);
-  std.debug.assert(tgaInfo.pixel_size == params.expectedPixelSize);
-  std.debug.assert(tgaInfo.attr_bits == params.expectedAttrBits);
+  std.testing.expectEqual(params.expectedImageType, tgaInfo.image_type);
+  std.testing.expectEqual(params.expectedPixelSize, tgaInfo.pixel_size);
+  std.testing.expectEqual(params.expectedAttrBits, tgaInfo.attr_bits);
   const img = try image.createImage(allocator, image.Info{
     .width = tgaInfo.width,
     .height = tgaInfo.height,
@@ -155,7 +155,7 @@ fn testLoadTga(
   const a = arrayList.toSliceConst();
   const b = @embedFile(rawFilename);
 
-  std.debug.assert(blk: {
+  std.testing.expect(blk: {
     if (a.len != b.len) {
       break :blk false;
     }

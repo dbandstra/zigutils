@@ -36,8 +36,8 @@ test "ZipTest: locate and decompress a file from a zip archive" {
     const pos = std.math.cast(usize, fileInfo.offset) catch unreachable;
     try seekable.stream.seekTo(pos);
 
-    std.debug.assert(fileInfo.compressionMethod == COMPRESSION_DEFLATE);
-    std.debug.assert(fileInfo.uncompressedSize == uncompressedData.len);
+    std.testing.expectEqual(COMPRESSION_DEFLATE, fileInfo.compressionMethod);
+    std.testing.expectEqual(uncompressedData.len, usize(fileInfo.uncompressedSize));
 
     var inflater = Inflater.init(allocator, -15);
     defer inflater.deinit();
@@ -52,7 +52,7 @@ test "ZipTest: locate and decompress a file from a zip archive" {
       if (bytesRead == 0) {
         break;
       }
-      std.debug.assert(std.mem.eql(u8, buffer[0..bytesRead], uncompressedData[index..index + bytesRead]));
+      std.testing.expect(std.mem.eql(u8, buffer[0..bytesRead], uncompressedData[index..index + bytesRead]));
       index += bytesRead;
     }
   } else {
@@ -73,7 +73,7 @@ test "ZipTest: count files inside a zip archive" {
   );
 
   const isZipFile = try sz.is_zip_file(&in_stream.stream, &seekable.stream);
-  std.debug.assert(isZipFile);
+  std.testing.expect(isZipFile);
   const cdInfo = try sz.find_central_directory(&in_stream.stream, &seekable.stream);
   var walkState: ZipWalkState = undefined;
   var filenameBuf: [260]u8 = undefined;
@@ -87,5 +87,5 @@ test "ZipTest: count files inside a zip archive" {
     }
   }
 
-  std.debug.assert(count == 293);
+  std.testing.expectEqual(usize(293), count);
 }

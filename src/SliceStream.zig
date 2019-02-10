@@ -124,7 +124,7 @@ test "SliceStream: source buffer smaller than read buffer" {
 
   // unfortunately, you have to `try`, even though this function never throws
   const br0 = try sis.stream.read(dest_buf[0..]);
-  std.debug.assert(std.mem.eql(u8, dest_buf[0..br0], "Hello world"));
+  std.testing.expect(std.mem.eql(u8, dest_buf[0..br0], "Hello world"));
 }
 
 test "SliceStream: source buffer longer than read buffer" {
@@ -134,19 +134,19 @@ test "SliceStream: source buffer longer than read buffer" {
   var dest_buf: [5]u8 = undefined;
 
   const br0 = try sis.stream.read(dest_buf[0..]);
-  std.debug.assert(std.mem.eql(u8, dest_buf[0..br0], "Betwe"));
+  std.testing.expect(std.mem.eql(u8, dest_buf[0..br0], "Betwe"));
 
   const br1 = try sis.stream.read(dest_buf[0..]);
-  std.debug.assert(std.mem.eql(u8, dest_buf[0..br1], "en 15"));
+  std.testing.expect(std.mem.eql(u8, dest_buf[0..br1], "en 15"));
 
   const br2 = try sis.stream.read(dest_buf[0..]);
-  std.debug.assert(std.mem.eql(u8, dest_buf[0..br2], " and "));
+  std.testing.expect(std.mem.eql(u8, dest_buf[0..br2], " and "));
 
   const br3 = try sis.stream.read(dest_buf[0..]);
-  std.debug.assert(std.mem.eql(u8, dest_buf[0..br3], "20."));
+  std.testing.expect(std.mem.eql(u8, dest_buf[0..br3], "20."));
 
   const br4 = try sis.stream.read(dest_buf[0..]);
-  std.debug.assert(br4 == 0);
+  std.testing.expectEqual(usize(0), br4);
 }
 
 test "SliceStream: seeking around" {
@@ -157,28 +157,28 @@ test "SliceStream: seeking around" {
   var dest_buf: [5]u8 = undefined;
 
   const br0 = try sis.stream.read(dest_buf[0..]);
-  std.debug.assert(std.mem.eql(u8, dest_buf[0..br0], "This "));
+  std.testing.expect(std.mem.eql(u8, dest_buf[0..br0], "This "));
 
   try sss.stream.seekForward(3);
   const br1 = try sis.stream.read(dest_buf[0..]);
-  std.debug.assert(std.mem.eql(u8, dest_buf[0..br1], "a dec"));
+  std.testing.expect(std.mem.eql(u8, dest_buf[0..br1], "a dec"));
 
   try sss.stream.seekForward(-2);
   const br2 = try sis.stream.read(dest_buf[0..]);
-  std.debug.assert(std.mem.eql(u8, dest_buf[0..br2], "ecent"));
+  std.testing.expect(std.mem.eql(u8, dest_buf[0..br2], "ecent"));
 
   try sss.stream.seekForward(0);
   const cur_pos = try sss.stream.getPos();
-  std.debug.assert(cur_pos == 16);
+  std.testing.expectEqual(usize(16), cur_pos);
 
   try sss.stream.seekTo(1);
   const br3 = try sis.stream.read(dest_buf[0..]);
-  std.debug.assert(std.mem.eql(u8, dest_buf[0..br3], "his i"));
+  std.testing.expect(std.mem.eql(u8, dest_buf[0..br3], "his i"));
 
   try sss.stream.seekTo(swc.slice.len - 3);
   const br4 = try sis.stream.read(dest_buf[0..]);
-  std.debug.assert(std.mem.eql(u8, dest_buf[0..br4], "ce."));
+  std.testing.expect(std.mem.eql(u8, dest_buf[0..br4], "ce."));
 
-  std.debug.assertError(sss.stream.seekTo(999), error.SliceSeekOutOfBounds);
-  std.debug.assertError(sss.stream.seekForward(-999), error.SliceSeekOutOfBounds);
+  std.testing.expectError(error.SliceSeekOutOfBounds, sss.stream.seekTo(999));
+  std.testing.expectError(error.SliceSeekOutOfBounds, sss.stream.seekForward(-999));
 }

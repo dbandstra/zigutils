@@ -44,5 +44,5 @@ test "ArrayListOutStream" {
 
   try alos.stream.print("This is pretty nice, no buffer limit.");
 
-  std.debug.assert(std.mem.eql(u8, array_list.toSlice(), "This is pretty nice, no buffer limit."));
+  std.testing.expect(std.mem.eql(u8, array_list.toSlice(), "This is pretty nice, no buffer limit."));
 }

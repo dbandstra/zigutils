@@ -109,11 +109,11 @@ test "InflateInStream: works on valid input" {
     if (n == 0) {
       break;
     }
-    std.debug.assert(std.mem.eql(u8, buffer[0..n], uncompressedData[index..index + n]));
+    std.testing.expect(std.mem.eql(u8, buffer[0..n], uncompressedData[index..index + n]));
     index += n;
   }
 
-  std.debug.assert(index == uncompressedData.len);
+  std.testing.expectEqual(uncompressedData.len, index);
 }
 
 test "InflateInStream: fails with InvalidStream on bad input" {
@@ -139,8 +139,8 @@ test "InflateInStream: fails with InvalidStream on bad input" {
 
   var buffer: [256]u8 = undefined;
 
-  std.debug.assertError(
-    inflateStream.stream.read(buffer[0..]),
+  std.testing.expectError(
     InflateInStream(std.io.SliceInStream.Error).Error.InvalidStream,
+    inflateStream.stream.read(buffer[0..]),
   );
 }

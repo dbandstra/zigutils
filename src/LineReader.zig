@@ -60,26 +60,24 @@ test "LineReader: reads lines and fails upon EOF" {
 
   mos.reset();
   try line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream);
-  std.debug.assert(std.mem.eql(u8, mos.getWritten(), "First line"));
+  std.testing.expect(std.mem.eql(u8, mos.getWritten(), "First line"));
 
   mos.reset();
   try line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream);
-  std.debug.assert(std.mem.eql(u8, mos.getWritten(), "Second line"));
+  std.testing.expect(std.mem.eql(u8, mos.getWritten(), "Second line"));
 
   mos.reset();
   try line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream);
-  std.debug.assert(std.mem.eql(u8, mos.getWritten(), ""));
+  std.testing.expect(std.mem.eql(u8, mos.getWritten(), ""));
 
   // current behaviour is to throw an error when a read fails (e.g. end of
   // file). not sure if this is ideal
-  var endOfFile = false;
   mos.reset();
-  line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream) catch |err| switch (err) {
-    error.EndOfFile => endOfFile = true,
-    else => {},
-  };
-  std.debug.assert(endOfFile == true);
-  std.debug.assert(std.mem.eql(u8, mos.getWritten(), "Unterminated line"));
+  std.testing.expectError(
+    error.EndOfFile,
+    line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream)
+  );
+  std.testing.expect(std.mem.eql(u8, mos.getWritten(), "Unterminated line"));
 }
 
 test "LineReader: keeps consuming till EOL even if write fails" {
@@ -90,18 +88,16 @@ test "LineReader: keeps consuming till EOL even if write fails" {
 
   const line_reader = LineReader(std.io.SliceOutStream.Error);
 
-  var outOfSpace = false;
   mos.reset();
-  line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream) catch |err| switch (err) {
-    error.OutOfSpace => outOfSpace = true,
-    else => {},
-  };
-  std.debug.assert(outOfSpace == true);
-  std.debug.assert(std.mem.eql(u8, mos.getWritten(), "First line i"));
+  std.testing.expectError(
+    error.OutOfSpace,
+    line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream)
+  );
+  std.testing.expect(std.mem.eql(u8, mos.getWritten(), "First line i"));
 
   mos.reset();
   try line_reader.read_line_from_stream(std.io.SliceInStream.Error, &in_stream.stream, &mos.stream);
-  std.debug.assert(std.mem.eql(u8, mos.getWritten(), "Second"));
+  std.testing.expect(std.mem.eql(u8, mos.getWritten(), "Second"));
 }
 
 // TODO - test line ending handling, i guess
