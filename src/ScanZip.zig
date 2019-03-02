@@ -37,23 +37,23 @@ const LocalFileHeader = struct{
 
 const CentralDirectoryFileHeader = struct{
   const Struct = packed struct{
-    signature: u32, // 0x02014b50
-    versionMadeBy: u16,
-    minVersionNeededToExtract: u16,
-    gpFlag: u16,
-    compressionMethod: u16,
-    fileLastModifiedTime: u16,
-    fileLastModifiedDate: u16,
-    crc32: u32,
-    compressedSize: u32,
-    uncompressedSize: u32,
-    fileNameLength: u16,
-    extraFieldLength: u16,
-    fileCommentLength: u16,
-    diskNumberWhereFileStarts: u16,
-    internalFileAttributes: u16,
-    externalFileAttributes: u32,
-    relativeOffsetOfLocalFileHeader: u32,
+    signature: u32, // 0x02014b50 // 0..4
+    versionMadeBy: u16, // 4..6
+    minVersionNeededToExtract: u16, // 6..8
+    gpFlag: u16, // 8..10
+    compressionMethod: u16, // 10..12
+    fileLastModifiedTime: u16, // 12..14
+    fileLastModifiedDate: u16, // 14..16
+    crc32: u32, // 16..20
+    compressedSize: u32, // 20..24
+    uncompressedSize: u32, // 24..28
+    fileNameLength: u16, // 28..30
+    extraFieldLength: u16, // 30..32
+    fileCommentLength: u16, // 32..34
+    diskNumberWhereFileStarts: u16, // 34..36
+    internalFileAttributes: u16, // 36..38
+    externalFileAttributes: u32, // 38..42
+    relativeOffsetOfLocalFileHeader: u32, // 42..46
     // fileName: [fileNameLength]u8,
     // extraField: [extraFieldLength]u8,
     // fileComment: [fileCommentLengthu8],
@@ -74,14 +74,14 @@ const CentralDirectoryFileHeader = struct{
 
 const EndOfCentralDirectoryRecord = struct{
   const Struct = packed struct{
-    signature: u32, // 0x06054b50
-    diskNumber: u16,
-    cdStartDisk: u16,
-    cdNumRecordsOnDisk: u16,
-    cdTotalNumRecords: u16,
-    cdSize: u32,
-    cdOffset: u32,
-    commentLength: u16,
+    signature: u32, // 0x06054b50 // 0
+    diskNumber: u16, // 4
+    cdStartDisk: u16, // 6
+    cdNumRecordsOnDisk: u16, // 8
+    cdTotalNumRecords: u16, // 10
+    cdSize: u32, // 12
+    cdOffset: u32, // 16
+    commentLength: u16, // 20
     // comment: [commentLength]u8,
   };
 
@@ -145,13 +145,20 @@ pub fn ScanZip(
       // what happens if this goes below 0? zig does something?
       var pos = endPos - @sizeOf(EndOfCentralDirectoryRecord.Struct);
 
-      while (pos > endPos - @sizeOf(EndOfCentralDirectoryRecord.Struct) - std.math.maxInt(EndOfCentralDirectoryRecord.commentLength.getType())) {
+      // while (pos > endPos - @sizeOf(EndOfCentralDirectoryRecord.Struct) - std.math.maxInt(EndOfCentralDirectoryRecord.commentLength.getType())) {
+      while (pos > endPos - @sizeOf(EndOfCentralDirectoryRecord.Struct) - std.math.maxInt(u16)) {
         var eocdr: EndOfCentralDirectoryRecord.Struct = undefined;
 
         try seekable.seekTo(pos);
         try readOneNoEof(ReadError, stream, EndOfCentralDirectoryRecord.Struct, &eocdr);
 
-        const signature = EndOfCentralDirectoryRecord.signature.read(&eocdr);
+        // const signature = EndOfCentralDirectoryRecord.signature.read(&eocdr);
+        const signature = blk: {
+          const offset = 0;
+          const fieldType = u32;
+          const bytes = @intToPtr([*]u8, @ptrToInt(&eocdr) + offset)[0..@sizeOf(fieldType)];
+          break :blk std.mem.readIntSlice(fieldType, bytes, builtin.Endian.Little);
+        };
 
         if (signature == 0x06054b50) {
           // signature seems correct, but it could actually be part of the
@@ -159,12 +166,30 @@ pub fn ScanZip(
           // points to the end of the file.
           // FIXME - that could be part of the comment as well? but if that was
           // the case, is it even possible to find the central directory?
-          const commentLength = EndOfCentralDirectoryRecord.commentLength.read(&eocdr);
+          // const commentLength = EndOfCentralDirectoryRecord.commentLength.read(&eocdr);
+          const commentLength = blk: {
+            const offset = 20;
+            const fieldType = u16;
+            const bytes = @intToPtr([*]u8, @ptrToInt(&eocdr) + offset)[0..@sizeOf(fieldType)];
+            break :blk std.mem.readIntSlice(fieldType, bytes, builtin.Endian.Little);
+          };
 
           if (pos + @sizeOf(EndOfCentralDirectoryRecord.Struct) + usize(commentLength) == endPos) {
             return CentralDirectoryInfo{
-              .offset = EndOfCentralDirectoryRecord.cdOffset.read(&eocdr),
-              .size = EndOfCentralDirectoryRecord.cdSize.read(&eocdr),
+              // .offset = EndOfCentralDirectoryRecord.cdOffset.read(&eocdr),
+              .offset = blk: {
+                const offset = 16;
+                const fieldType = u32;
+                const bytes = @intToPtr([*]u8, @ptrToInt(&eocdr) + offset)[0..@sizeOf(fieldType)];
+                break :blk std.mem.readIntSlice(fieldType, bytes, builtin.Endian.Little);
+              },
+              // .size = EndOfCentralDirectoryRecord.cdSize.read(&eocdr),
+              .size = blk: {
+                const offset = 12;
+                const fieldType = u32;
+                const bytes = @intToPtr([*]u8, @ptrToInt(&eocdr) + offset)[0..@sizeOf(fieldType)];
+                break :blk std.mem.readIntSlice(fieldType, bytes, builtin.Endian.Little);
+              },
             };
           }
         }
@@ -202,16 +227,40 @@ pub fn ScanZip(
       try seekable.seekTo(pos);
       try readOneNoEof(ReadError, stream, CentralDirectoryFileHeader.Struct, &fileHeader);
 
-      const signature = CentralDirectoryFileHeader.signature.read(&fileHeader);
+      // const signature = CentralDirectoryFileHeader.signature.read(&fileHeader);
+      const signature = blk: {
+        const offset = 0;
+        const fieldType = u32;
+        const bytes = @intToPtr([*]u8, @ptrToInt(&fileHeader) + offset)[0..@sizeOf(fieldType)];
+        break :blk std.mem.readIntSlice(fieldType, bytes, builtin.Endian.Little);
+      };
 
       if (signature != 0x02014b50) {
         return Error.Corrupt;
       }
 
       // TODO - make sure disk number is 0 or whatever
-      const fileNameLength = CentralDirectoryFileHeader.fileNameLength.read(&fileHeader);
-      const extraFieldLength = CentralDirectoryFileHeader.extraFieldLength.read(&fileHeader);
-      const fileCommentLength = CentralDirectoryFileHeader.fileCommentLength.read(&fileHeader);
+      // const fileNameLength = CentralDirectoryFileHeader.fileNameLength.read(&fileHeader);
+      const fileNameLength = blk: {
+        const offset = 28;
+        const fieldType = u16;
+        const bytes = @intToPtr([*]u8, @ptrToInt(&fileHeader) + offset)[0..@sizeOf(fieldType)];
+        break :blk std.mem.readIntSlice(fieldType, bytes, builtin.Endian.Little);
+      };
+      // const extraFieldLength = CentralDirectoryFileHeader.extraFieldLength.read(&fileHeader);
+      const extraFieldLength = blk: {
+        const offset = 30;
+        const fieldType = u16;
+        const bytes = @intToPtr([*]u8, @ptrToInt(&fileHeader) + offset)[0..@sizeOf(fieldType)];
+        break :blk std.mem.readIntSlice(fieldType, bytes, builtin.Endian.Little);
+      };
+      // const fileCommentLength = CentralDirectoryFileHeader.fileCommentLength.read(&fileHeader);
+      const fileCommentLength = blk: {
+        const offset = 32;
+        const fieldType = u16;
+        const bytes = @intToPtr([*]u8, @ptrToInt(&fileHeader) + offset)[0..@sizeOf(fieldType)];
+        break :blk std.mem.readIntSlice(fieldType, bytes, builtin.Endian.Little);
+      };
 
       pos = walkState.cdInfo.offset + walkState.relPos + @sizeOf(CentralDirectoryFileHeader.Struct);
       try seekable.seekTo(pos);
@@ -219,10 +268,34 @@ pub fn ScanZip(
       // FIXME - error checking or something?
       const n = try stream.read(walkState.filenameBuf[0..fileNameLength]);
 
-      const compressionMethod = CentralDirectoryFileHeader.compressionMethod.read(&fileHeader);
-      const compressedSize = CentralDirectoryFileHeader.compressedSize.read(&fileHeader);
-      const uncompressedSize = CentralDirectoryFileHeader.uncompressedSize.read(&fileHeader);
-      const offset = CentralDirectoryFileHeader.relativeOffsetOfLocalFileHeader.read(&fileHeader);
+      // const compressionMethod = CentralDirectoryFileHeader.compressionMethod.read(&fileHeader);
+      const compressionMethod = blk: {
+        const offset = 10;
+        const fieldType = u16;
+        const bytes = @intToPtr([*]u8, @ptrToInt(&fileHeader) + offset)[0..@sizeOf(fieldType)];
+        break :blk std.mem.readIntSlice(fieldType, bytes, builtin.Endian.Little);
+      };
+      // const compressedSize = CentralDirectoryFileHeader.compressedSize.read(&fileHeader);
+      const compressedSize = blk: {
+        const offset = 20;
+        const fieldType = u32;
+        const bytes = @intToPtr([*]u8, @ptrToInt(&fileHeader) + offset)[0..@sizeOf(fieldType)];
+        break :blk std.mem.readIntSlice(fieldType, bytes, builtin.Endian.Little);
+      };
+      // const uncompressedSize = CentralDirectoryFileHeader.uncompressedSize.read(&fileHeader);
+      const uncompressedSize = blk: {
+        const offset = 24;
+        const fieldType = u32;
+        const bytes = @intToPtr([*]u8, @ptrToInt(&fileHeader) + offset)[0..@sizeOf(fieldType)];
+        break :blk std.mem.readIntSlice(fieldType, bytes, builtin.Endian.Little);
+      };
+      // const offset = CentralDirectoryFileHeader.relativeOffsetOfLocalFileHeader.read(&fileHeader);
+      const offset = blk: {
+        const offset = 42;
+        const fieldType = u32;
+        const bytes = @intToPtr([*]u8, @ptrToInt(&fileHeader) + offset)[0..@sizeOf(fieldType)];
+        break :blk std.mem.readIntSlice(fieldType, bytes, builtin.Endian.Little);
+      };
 
       walkState.file = ZipWalkFile{
         .filename = walkState.filenameBuf[0..n],
