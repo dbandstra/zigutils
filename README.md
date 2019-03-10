@@ -5,10 +5,13 @@ Some [Zig](https://github.com/ziglang/zig) functions, nothing finished or polish
 
 ## Usage
 
-* To build: `zig build`
+* To build: `zig build` (Note: the built library is not really useful. I include the source files in other projects instead.)
 * To run tests: `zig build test`
 
+Note: Depending on your system you may need to edit the include/lib paths in `build.zig`, or use the `--library-path` and `-isystem` command-line args, to help the compiler locate zlib. See this issue: https://github.com/ziglang/zig/issues/2041
+
 ## Contents
+(This list is probably out of date.)
 
 ### ArrayListOutStream
 Writes data to a provided ArrayList(u8). Implements `OutStream`. Basically an inefficient example of an OutStream that doesn't have to worry about buffer sizes.
