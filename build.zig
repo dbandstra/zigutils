@@ -4,11 +4,6 @@ pub fn build(b: *Builder) void {
   const mode = b.standardReleaseOptions();
 
   var t = b.addTest("test.zig");
-
-  // where to find zlib includes and libs on my system (ubuntu)
-  t.addIncludeDir("/usr/include");
-  t.addLibPath("/usr/lib/x86_64-linux-gnu");
-
   t.linkSystemLibrary("c");
   t.linkSystemLibrary("z");
   const test_step = b.step("test", "Run all tests");
