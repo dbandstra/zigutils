@@ -17,9 +17,8 @@ pub const HunkSide = struct{
       .hunk = hunk,
       .vtable = vtable,
       .allocator = std.mem.Allocator{
-        .allocFn = allocFn,
         .reallocFn = reallocFn,
-        .freeFn = freeFn,
+        .shrinkFn = shrinkFn,
       },
     };
   }
@@ -32,24 +31,36 @@ pub const HunkSide = struct{
     self.vtable.freeToMark(self.hunk, pos);
   }
 
-  fn allocFn(allocator: *std.mem.Allocator, n: usize, alignment: u29) std.mem.Allocator.Error![]u8 {
+  fn reallocFn(
+    allocator: *std.mem.Allocator,
+    old_mem: []u8,
+    old_align: u29,
+    new_byte_count: usize,
+    alignment: u29,
+  ) std.mem.Allocator.Error![]u8 {
     const self = @fieldParentPtr(HunkSide, "allocator", allocator);
-    return self.vtable.alloc(self.hunk, n, alignment);
-  }
 
-  fn reallocFn(allocator: *std.mem.Allocator, old_mem: []u8, new_byte_count: usize, alignment: u29) std.mem.Allocator.Error![]u8 {
-    const self = @fieldParentPtr(HunkSide, "allocator", allocator);
-    if (new_byte_count <= old_mem.len) {
+    if (new_byte_count <= old_mem.len and alignment <= old_align) {
+      // reuse existing allocation block (or "free", if new_byte_count is 0)
       return old_mem[0..new_byte_count];
     } else {
+      // create a new allocation (old alloc is leaked, because there is no way
+      // to actually free individual allocations in the hunk system)
       const result = try self.vtable.alloc(self.hunk, new_byte_count, alignment);
       std.mem.copy(u8, result, old_mem);
       return result;
     }
   }
 
-  fn freeFn(allocator: *std.mem.Allocator, old_mem: []u8) void {
-    // do nothing
+  fn shrinkFn(
+    allocator: *std.mem.Allocator,
+    old_mem: []u8,
+    old_align: u29,
+    new_byte_count: usize,
+    alignment: u29
+  ) []u8 {
+    // note: alignment is guaranteed to be <= the old alignment
+    return old_mem[0..new_byte_count];
   }
 };
 
