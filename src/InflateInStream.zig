@@ -80,7 +80,7 @@ pub fn InflateInStream(comptime SourceError: type) type {
 }
 
 test "InflateInStream: works on valid input" {
-  const Hunk = @import("Hunk.zig").Hunk;
+  const Hunk = @import("zig-hunk").Hunk;
 
   var memory: [100 * 1024]u8 = undefined;
   var hunk = Hunk.init(memory[0..]);
@@ -117,7 +117,7 @@ test "InflateInStream: works on valid input" {
 }
 
 test "InflateInStream: fails with InvalidStream on bad input" {
-  const Hunk = @import("Hunk.zig").Hunk;
+  const Hunk = @import("zig-hunk").Hunk;
 
   var memory: [100 * 1024]u8 = undefined;
   var hunk = Hunk.init(memory[0..]);

@@ -27,7 +27,7 @@ pub const ArrayListOutStream = struct{
 };
 
 test "ArrayListOutStream" {
-  const Hunk = @import("Hunk.zig").Hunk;
+  const Hunk = @import("zig-hunk").Hunk;
 
   var memory: [1024]u8 = undefined;
   var hunk = Hunk.init(memory[0..]);

@@ -1,6 +1,5 @@
 comptime {
   _ = @import("src/ArrayListOutStream.zig");
-  _ = @import("src/Hunk.zig");
   _ = @import("src/InflateInStream.zig");
   _ = @import("src/LineReader.zig");
   _ = @import("src/SliceStream.zig");

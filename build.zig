@@ -6,6 +6,7 @@ pub fn build(b: *Builder) void {
   var t = b.addTest("test.zig");
   t.linkSystemLibrary("c");
   t.linkSystemLibrary("z");
+  t.addPackagePath("zig-hunk", "zig-hunk/hunk.zig");
   const test_step = b.step("test", "Run all tests");
   test_step.dependOn(&t.step);
 

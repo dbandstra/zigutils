@@ -1,5 +1,5 @@
 const std = @import("std");
-const Hunk = @import("../Hunk.zig").Hunk;
+const Hunk = @import("zig-hunk").Hunk;
 const ArrayListOutStream = @import("../ArrayListOutStream.zig").ArrayListOutStream;
 const my_io = @import("../SliceStream.zig");
 const image = @import("image.zig");
