@@ -61,7 +61,7 @@ pub const Inflater = struct{
     self.owned_by = null;
     self.resetting = true;
 
-    self.zlib_stream.next_in = @intToPtr([*]u8, 0);
+    self.zlib_stream.next_in = @intToPtr(?[*]u8, 0);
     self.zlib_stream.avail_in = 0;
     self.zlib_stream.total_in = 0;
   }
