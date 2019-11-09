@@ -21,10 +21,10 @@ pub fn WriteRaw(comptime WriteError: type) type {
     fn writePixel(pixel: image.Pixel, stream: *std.io.OutStream(WriteError), format: RawFormat) !void {
       switch (format) {
         RawFormat.R8G8B8 => {
-          try stream.write([]u8{pixel.r, pixel.g, pixel.b});
+          try stream.write([_]u8{pixel.r, pixel.g, pixel.b});
         },
         RawFormat.R8G8B8A8 => {
-          try stream.write([]u8{pixel.r, pixel.g, pixel.b, pixel.a});
+          try stream.write([_]u8{pixel.r, pixel.g, pixel.b, pixel.a});
         },
       }
     }

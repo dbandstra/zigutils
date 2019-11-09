@@ -1,6 +1,4 @@
 const std = @import("std");
-const File = std.os.File;
-const InStream = std.io.InStream;
 const Hunk = @import("zig-hunk").Hunk;
 const ScanZip = @import("../ScanZip.zig").ScanZip;
 const COMPRESSION_DEFLATE = @import("../ScanZip.zig").COMPRESSION_DEFLATE;
@@ -19,15 +17,15 @@ test "ZipTest: locate and decompress a file from a zip archive" {
 
   const uncompressedData = @embedFile("../testdata/adler32.c");
 
-  var file = try File.openRead("src/testdata/zlib1211.zip");
+  var file = try std.fs.File.openRead("src/testdata/zlib1211.zip");
   defer file.close();
-  var in_stream = std.os.File.inStream(file);
-  var seekable = std.os.File.seekableStream(file);
+  var in_stream = std.fs.File.inStream(file);
+  var seekable = std.fs.File.seekableStream(file);
 
   const sz = ScanZip(
-    std.os.File.InStream.Error,
-    std.os.File.SeekError,
-    std.os.File.GetSeekPosError,
+    std.fs.File.InStream.Error,
+    std.fs.File.SeekError,
+    std.fs.File.GetPosError,
   );
 
   const info = try sz.find_file(&in_stream.stream, &seekable.stream, "zlib-1.2.11/adler32.c");
@@ -37,12 +35,12 @@ test "ZipTest: locate and decompress a file from a zip archive" {
     try seekable.stream.seekTo(pos);
 
     std.testing.expectEqual(COMPRESSION_DEFLATE, fileInfo.compressionMethod);
-    std.testing.expectEqual(uncompressedData.len, usize(fileInfo.uncompressedSize));
+    std.testing.expectEqual(uncompressedData.len, fileInfo.uncompressedSize);
 
     var inflater = Inflater.init(allocator, -15);
     defer inflater.deinit();
     var inflateBuf: [256]u8 = undefined;
-    var iis = InflateInStream(std.os.File.InStream.Error).init(&inflater, &in_stream.stream, inflateBuf[0..]);
+    var iis = InflateInStream(std.fs.File.InStream.Error).init(&inflater, &in_stream.stream, inflateBuf[0..]);
     defer iis.deinit();
 
     var index: usize = 0;
@@ -61,15 +59,15 @@ test "ZipTest: locate and decompress a file from a zip archive" {
 }
 
 test "ZipTest: count files inside a zip archive" {
-  var file = try File.openRead("src/testdata/zlib1211.zip");
+  var file = try std.fs.File.openRead("src/testdata/zlib1211.zip");
   defer file.close();
-  var in_stream = std.os.File.inStream(file);
-  var seekable = std.os.File.seekableStream(file);
+  var in_stream = std.fs.File.inStream(file);
+  var seekable = std.fs.File.seekableStream(file);
 
   const sz = ScanZip(
-    std.os.File.InStream.Error,
-    std.os.File.SeekError,
-    std.os.File.GetSeekPosError,
+    std.fs.File.InStream.Error,
+    std.fs.File.SeekError,
+    std.fs.File.GetPosError,
   );
 
   const isZipFile = try sz.is_zip_file(&in_stream.stream, &seekable.stream);
@@ -87,5 +85,5 @@ test "ZipTest: count files inside a zip archive" {
     }
   }
 
-  std.testing.expectEqual(usize(293), count);
+  std.testing.expectEqual(@as(usize, 293), count);
 }

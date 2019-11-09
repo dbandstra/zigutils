@@ -233,8 +233,8 @@ pub fn LoadTga(
     fn writePixel(storeFormat: image.Format, dest: *std.io.SliceOutStream, pixel: image.Pixel) void {
       switch (storeFormat) {
         // `catch unreachable` because we allocated the whole buffer at the right size
-        image.Format.RGBA => dest.stream.write([]u8{ pixel.r, pixel.g, pixel.b, pixel.a }) catch unreachable,
-        image.Format.RGB => dest.stream.write([]u8{ pixel.r, pixel.g, pixel.b }) catch unreachable,
+        image.Format.RGBA => dest.stream.write([_]u8{ pixel.r, pixel.g, pixel.b, pixel.a }) catch unreachable,
+        image.Format.RGB => dest.stream.write([_]u8{ pixel.r, pixel.g, pixel.b }) catch unreachable,
         else => unreachable, // FIXME...
       }
     }

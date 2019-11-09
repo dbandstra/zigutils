@@ -1,6 +1,6 @@
 var next_owner_id: usize = 1; // FIXME - "manager" per thread
 pub const OwnerId = struct{
-  pub id: usize,
+  id: usize,
 
   pub fn generate() OwnerId {
     const id = next_owner_id;

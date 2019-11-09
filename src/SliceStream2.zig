@@ -10,7 +10,7 @@ pub fn SliceSeekableStream(comptime SliceStream: type) type {
     pub const GetSeekPosError = error{};
     pub const Stream = std.io.SeekableStream(SeekError, GetSeekPosError);
 
-    pub stream: Stream,
+    stream: Stream,
 
     ss: *SliceStream,
 
@@ -19,31 +19,33 @@ pub fn SliceSeekableStream(comptime SliceStream: type) type {
         .ss = ss,
         .stream = Stream{
           .seekToFn = seekToFn,
-          .seekForwardFn = seekForwardFn,
+          .seekByFn = seekByFn,
           .getEndPosFn = getEndPosFn,
           .getPosFn = getPosFn,
         },
       };
     }
 
-    fn seekToFn(seekable_stream: *Stream, pos: usize) SeekError!void {
+    fn seekToFn(seekable_stream: *Stream, pos: u64) SeekError!void {
       const self = @fieldParentPtr(Self, "stream", seekable_stream);
 
       // FIXME - are you supposed to be able to seek past the end without an error?
       // i suppose it would only fail if you tried to read at that point?
 
-      if (pos < self.ss.slice.len) {
-        self.ss.pos = pos;
+      const usize_pos = std.math.cast(usize, pos) catch return SeekError.SliceSeekOutOfBounds;
+
+      if (usize_pos < self.ss.slice.len) {
+        self.ss.pos = usize_pos;
       } else {
         return SeekError.SliceSeekOutOfBounds;
       }
     }
 
-    fn seekForwardFn(seekable_stream: *Stream, amt: isize) SeekError!void {
+    fn seekByFn(seekable_stream: *Stream, amt: i64) SeekError!void {
       const self = @fieldParentPtr(Self, "stream", seekable_stream);
 
       if (amt > 0) {
-        const uofs = @intCast(usize, amt); // should never fail
+        const uofs = std.math.cast(usize, amt) catch return SeekError.SliceSeekOutOfBounds;
 
         if (self.ss.pos + uofs <= self.ss.slice.len) {
           self.ss.pos += uofs;
@@ -51,7 +53,7 @@ pub fn SliceSeekableStream(comptime SliceStream: type) type {
           return SeekError.SliceSeekOutOfBounds;
         }
       } else if (amt < 0) {
-        const uofs = @intCast(usize, -amt); // should never fail
+        const uofs = std.math.cast(usize, -amt) catch return SeekError.SliceSeekOutOfBounds;
 
         if (self.ss.pos >= uofs) {
           self.ss.pos -= uofs;
@@ -61,16 +63,16 @@ pub fn SliceSeekableStream(comptime SliceStream: type) type {
       }
     }
 
-    fn getEndPosFn(seekable_stream: *Stream) GetSeekPosError!usize {
+    fn getEndPosFn(seekable_stream: *Stream) GetSeekPosError!u64 {
       const self = @fieldParentPtr(Self, "stream", seekable_stream);
 
-      return self.ss.slice.len;
+      return @intCast(usize, self.ss.slice.len);
     }
 
-    fn getPosFn(seekable_stream: *Stream) GetSeekPosError!usize {
+    fn getPosFn(seekable_stream: *Stream) GetSeekPosError!u64 {
       const self = @fieldParentPtr(Self, "stream", seekable_stream);
 
-      return self.ss.pos;
+      return @intCast(usize, self.ss.pos);
     }
   };
 }
@@ -103,7 +105,7 @@ test "SliceStream2: source buffer longer than read buffer" {
   std.testing.expect(std.mem.eql(u8, dest_buf[0..br3], "20."));
 
   const br4 = try sis.stream.read(dest_buf[0..]);
-  std.testing.expectEqual(usize(0), br4);
+  std.testing.expectEqual(@as(usize, 0), br4);
 }
 
 test "SliceStream2: seeking around" {
@@ -115,17 +117,17 @@ test "SliceStream2: seeking around" {
   const br0 = try sis.stream.read(dest_buf[0..]);
   std.testing.expect(std.mem.eql(u8, dest_buf[0..br0], "This "));
 
-  try sss.stream.seekForward(3);
+  try sss.stream.seekBy(3);
   const br1 = try sis.stream.read(dest_buf[0..]);
   std.testing.expect(std.mem.eql(u8, dest_buf[0..br1], "a dec"));
 
-  try sss.stream.seekForward(-2);
+  try sss.stream.seekBy(-2);
   const br2 = try sis.stream.read(dest_buf[0..]);
   std.testing.expect(std.mem.eql(u8, dest_buf[0..br2], "ecent"));
 
-  try sss.stream.seekForward(0);
+  try sss.stream.seekBy(0);
   const cur_pos = try sss.stream.getPos();
-  std.testing.expectEqual(usize(16), cur_pos);
+  std.testing.expectEqual(@as(usize, 16), cur_pos);
 
   try sss.stream.seekTo(1);
   const br3 = try sis.stream.read(dest_buf[0..]);
@@ -136,5 +138,5 @@ test "SliceStream2: seeking around" {
   std.testing.expect(std.mem.eql(u8, dest_buf[0..br4], "ce."));
 
   std.testing.expectError(error.SliceSeekOutOfBounds, sss.stream.seekTo(999));
-  std.testing.expectError(error.SliceSeekOutOfBounds, sss.stream.seekForward(-999));
+  std.testing.expectError(error.SliceSeekOutOfBounds, sss.stream.seekBy(-999));
 }

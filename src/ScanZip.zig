@@ -161,7 +161,7 @@ pub fn ScanZip(
           // the case, is it even possible to find the central directory?
           const commentLength = EndOfCentralDirectoryRecord.commentLength.read(&eocdr);
 
-          if (pos + @sizeOf(EndOfCentralDirectoryRecord.Struct) + usize(commentLength) == endPos) {
+          if (pos + @sizeOf(EndOfCentralDirectoryRecord.Struct) + @as(usize, commentLength) == endPos) {
             return CentralDirectoryInfo{
               .offset = EndOfCentralDirectoryRecord.cdOffset.read(&eocdr),
               .size = EndOfCentralDirectoryRecord.cdSize.read(&eocdr),

@@ -161,7 +161,7 @@ fn testLoadTga(
     }
     var i: u32 = 0;
     while (i < a.len) : (i += 1) {
-      const d = i32(a[i]) - i32(b[i]);
+      const d = @as(i32, a[i]) - @as(i32, b[i]);
 
       if (d < -params.tolerance or d > params.tolerance) {
         break :blk false;
